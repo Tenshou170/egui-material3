@@ -741,7 +741,7 @@ impl<'a> MaterialDataTable<'a> {
             default_row_height,
             theme,
             auto_height,
-            refresh_interval,
+            refresh_interval: _,
             ..
         } = self;
 
