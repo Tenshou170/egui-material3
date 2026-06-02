@@ -37,6 +37,7 @@
 //! - **Disabled**: surface background, onSurface @ 12% outline, onSurface @ 38% content
 
 use crate::{get_global_color, material_symbol::material_symbol_text};
+use crate::theme::get_global_corner_radius;
 use egui::{
     ecolor::Color32,
     emath::NumExt,
@@ -540,33 +541,33 @@ impl Widget for MaterialButton<'_> {
         // Material Design button defaults based on variant
         let (default_fill, default_stroke, default_corner_radius, _has_elevation) = match variant {
             MaterialButtonVariant::Filled => (
-                Some(primary), // Use primary for high-emphasis filled button background
+                Some(primary),
                 Some(Stroke::NONE),
-                CornerRadius::from(20),
+                CornerRadius::from(get_global_corner_radius().map(|r| r as u8).unwrap_or(20)),
                 false,
             ),
             MaterialButtonVariant::Outlined => (
-                Some(Color32::TRANSPARENT), // Transparent to show parent surface
-                Some(Stroke::new(1.0, outline)), // Use outline for medium-emphasis border
-                CornerRadius::from(20),
+                Some(Color32::TRANSPARENT),
+                Some(Stroke::new(1.0, outline)),
+                CornerRadius::from(get_global_corner_radius().map(|r| r as u8).unwrap_or(20)),
                 false,
             ),
             MaterialButtonVariant::Text => (
-                Some(Color32::TRANSPARENT), // Transparent to show parent surface
-                Some(Stroke::NONE), // No border for low-emphasis text button
-                CornerRadius::from(20),
+                Some(Color32::TRANSPARENT),
+                Some(Stroke::NONE),
+                CornerRadius::from(get_global_corner_radius().map(|r| r as u8).unwrap_or(20)),
                 false,
             ),
             MaterialButtonVariant::Elevated => (
-                Some(surface), // Use surface for elevated container background
+                Some(surface),
                 Some(Stroke::NONE),
-                CornerRadius::from(20),
+                CornerRadius::from(get_global_corner_radius().map(|r| r as u8).unwrap_or(20)),
                 true,
             ),
             MaterialButtonVariant::FilledTonal => (
-                Some(secondary_container), // Use secondaryContainer for toned-down emphasis
+                Some(secondary_container),
                 Some(Stroke::NONE),
-                CornerRadius::from(20),
+                CornerRadius::from(get_global_corner_radius().map(|r| r as u8).unwrap_or(20)),
                 false,
             ),
         };

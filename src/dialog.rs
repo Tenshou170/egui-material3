@@ -481,7 +481,9 @@ impl<'a> MaterialDialog<'a> {
         let modal_frame = egui::Frame::default()
             .inner_margin(egui::vec2(0.0, 24.0))
             .fill(get_global_color("surfaceContainerHigh"))
-            .corner_radius(egui::CornerRadius::same(28))
+            .corner_radius(egui::CornerRadius::same(
+                crate::theme::get_global_corner_radius().map(|r| (r * 1.4) as u8).unwrap_or(28)
+            ))
             .stroke(Stroke::NONE);
         
         let modal = Modal::new(self.id)

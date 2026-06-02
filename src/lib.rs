@@ -322,6 +322,7 @@ pub use {
     theme::{
         get_global_color, get_global_theme, update_global_theme, ContrastLevel,
         MaterialThemeContext, MaterialThemeFile, ThemeMode,
+        get_global_corner_radius, set_global_corner_radius,
     },
     timeline::{
         timeline, MaterialTimeline, TimelineDot, TimelineDotColor, TimelineDotVariant,

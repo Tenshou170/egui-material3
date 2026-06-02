@@ -294,6 +294,11 @@ pub struct MaterialThemeContext {
     pub contrast_level: ContrastLevel,
     pub material_theme: Option<MaterialThemeFile>,
     pub selected_colors: HashMap<String, Color32>,
+    /// Global shape corner radius override (in logical pixels).
+    /// When `Some`, MD3 widgets use this instead of their hardcoded MD3 defaults.
+    /// When `None`, each widget uses its own MD3 spec value (e.g. 20dp for buttons,
+    /// 28dp for dialogs).
+    pub shape_corner_radius: Option<f32>,
 }
 
 impl Default for MaterialThemeContext {
@@ -303,6 +308,7 @@ impl Default for MaterialThemeContext {
             contrast_level: ContrastLevel::Normal,
             material_theme: Some(get_default_material_theme()),
             selected_colors: HashMap::new(),
+            shape_corner_radius: None,
         }
     }
 }
@@ -1476,6 +1482,24 @@ pub fn get_global_color(name: &str) -> Color32 {
             "onBackground" => Color32::from_rgb(28, 27, 31),
             _ => Color32::GRAY,
         }
+    }
+}
+
+/// Get the global shape corner radius override.
+///
+/// Returns `Some(radius)` if a global radius has been set via
+/// `set_global_corner_radius`, or `None` if each widget should use its own
+/// MD3 spec default (e.g. 20dp for buttons, 28dp for dialogs).
+pub fn get_global_corner_radius() -> Option<f32> {
+    GLOBAL_THEME.lock().ok().and_then(|t| t.shape_corner_radius)
+}
+
+/// Set a global shape corner radius override for all MD3 widgets.
+///
+/// Pass `None` to reset to per-widget MD3 spec defaults.
+pub fn set_global_corner_radius(radius: Option<f32>) {
+    if let Ok(mut theme) = GLOBAL_THEME.lock() {
+        theme.shape_corner_radius = radius;
     }
 }
 
