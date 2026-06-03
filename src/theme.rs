@@ -1633,7 +1633,7 @@ where
     let surface = theme.get_surface_color(visuals.dark_mode);
     let on_surface = theme.get_color_by_name("onSurface");
     let surface_variant = theme.get_color_by_name("surfaceVariant");
-    let on_surface_variant = theme.get_color_by_name("onSurfaceVariant");
+    let _on_surface_variant = theme.get_color_by_name("onSurfaceVariant");
 
     let surface_container = theme.get_color_by_name("surfaceContainer");
     let surface_container_high = theme.get_color_by_name("surfaceContainerHigh");
@@ -1651,7 +1651,7 @@ where
     let shadow = theme.get_color_by_name("shadow");
 
     // === Selection colors ===
-    visuals.selection.bg_fill = primary;
+    visuals.selection.bg_fill = primary.linear_multiply(0.4);
     visuals.selection.stroke.color = primary;
 
     // === Hyperlink ===
@@ -1663,7 +1663,7 @@ where
     visuals.widgets.noninteractive.bg_fill = surface;
     visuals.widgets.noninteractive.weak_bg_fill = surface_variant;
     visuals.widgets.noninteractive.bg_stroke.color = outline_variant;
-    visuals.widgets.noninteractive.fg_stroke.color = on_surface_variant;
+    visuals.widgets.noninteractive.fg_stroke.color = on_surface;
 
     // Inactive widgets (default state)
     visuals.widgets.inactive.weak_bg_fill = surface_container_highest;
@@ -1707,7 +1707,7 @@ where
     visuals.code_bg_color = surface_container_highest;
 
     // === Text colors ===
-    visuals.override_text_color = Some(on_surface);
+    visuals.override_text_color = None;
     visuals.text_cursor.stroke.color = primary;
 
     // === Error and warning colors ===
@@ -1721,6 +1721,17 @@ where
     // === Window shadow ===
     visuals.window_shadow.color = shadow;
     visuals.popup_shadow.color = shadow;
+
+    // Apply global corner radius if set
+    if let Some(radius) = GLOBAL_THEME.lock().ok().and_then(|t| t.shape_corner_radius) {
+        let cr = egui::CornerRadius::same(radius.round() as u8);
+        visuals.window_corner_radius = cr;
+        visuals.widgets.noninteractive.corner_radius = cr;
+        visuals.widgets.inactive.corner_radius = cr;
+        visuals.widgets.hovered.corner_radius = cr;
+        visuals.widgets.active.corner_radius = cr;
+        visuals.widgets.open.corner_radius = cr;
+    }
 
     ctx.set_visuals(visuals);
 }

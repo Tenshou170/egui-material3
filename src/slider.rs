@@ -184,7 +184,7 @@ impl<'a> MaterialSlider<'a> {
 impl<'a> Widget for MaterialSlider<'a> {
     fn ui(self, ui: &mut Ui) -> Response {
         let slider_width = self.width.unwrap_or(200.0);
-        let height = 48.0;
+        let height = 32.0;
 
         let desired_size = if self.text.is_some() || self.show_value {
             Vec2::new(slider_width + 100.0, height)
@@ -537,7 +537,7 @@ impl<'a> MaterialRangeSlider<'a> {
 impl<'a> Widget for MaterialRangeSlider<'a> {
     fn ui(self, ui: &mut Ui) -> Response {
         let slider_width = self.width.unwrap_or(200.0);
-        let height = 48.0;
+        let height = 32.0;
 
         let desired_size = if self.text.is_some() || self.show_values {
             Vec2::new(slider_width + 120.0, height)

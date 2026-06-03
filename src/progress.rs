@@ -128,7 +128,7 @@ impl MaterialProgress {
             indeterminate: false,
             four_color_enabled: false,
             size: match variant {
-                ProgressVariant::Linear => Vec2::new(200.0, 4.0),
+                ProgressVariant::Linear => Vec2::new(200.0, 6.0),
                 ProgressVariant::Circular => Vec2::splat(48.0),
             },
             active_color: None,

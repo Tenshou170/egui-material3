@@ -247,8 +247,8 @@ const INDICATOR_TOP_ROUNDING: f32 = 3.0;
 /// M3 divider
 const DIVIDER_HEIGHT: f32 = 1.0;
 /// M3 label font size
-const LABEL_FONT_SIZE: f32 = 14.0;
-const ICON_FONT_SIZE: f32 = 18.0;
+const LABEL_FONT_SIZE: f32 = 12.0;
+const ICON_FONT_SIZE: f32 = 16.0;
 
 impl<'a> Widget for MaterialTabs<'a> {
     fn ui(self, ui: &mut Ui) -> Response {
@@ -256,9 +256,13 @@ impl<'a> Widget for MaterialTabs<'a> {
         let tab_height = self
             .height
             .unwrap_or(if has_icons { TAB_HEIGHT_WITH_ICON } else { TAB_HEIGHT_TEXT_ONLY });
-        let tab_width = ui.available_width() / self.tabs.len().max(1) as f32;
+        let label_font = FontId::proportional(LABEL_FONT_SIZE);
+        let icon_font = FontId::proportional(ICON_FONT_SIZE);
 
-        let desired_size = Vec2::new(ui.available_width(), tab_height);
+        let available_width = ui.available_width();
+        let tab_widths = vec![available_width / self.tabs.len().max(1) as f32; self.tabs.len()];
+
+        let desired_size = Vec2::new(available_width, tab_height);
         let (rect, mut response) = ui.allocate_exact_size(desired_size, Sense::hover());
 
         // M3 Color Roles - Tabs
@@ -278,14 +282,15 @@ impl<'a> Widget for MaterialTabs<'a> {
 
         // Draw tabs
         let mut any_clicked = false;
-        let label_font = FontId::proportional(LABEL_FONT_SIZE);
-        let icon_font = FontId::proportional(ICON_FONT_SIZE);
+        let mut current_x = rect.min.x;
 
         for (index, tab) in self.tabs.iter().enumerate() {
+            let tab_width = tab_widths[index];
             let tab_rect = Rect::from_min_size(
-                Pos2::new(rect.min.x + index as f32 * tab_width, rect.min.y),
+                Pos2::new(current_x, rect.min.y),
                 Vec2::new(tab_width, tab_height),
             );
+            current_x += tab_width;
 
             // Create unique ID for each tab using optional salt
             let tab_id = if let Some(ref salt) = self.id_salt {
