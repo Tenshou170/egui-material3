@@ -188,7 +188,7 @@ impl<'a> Widget for MaterialCheckbox<'a> {
         };
 
         let desired_width = checkbox_size + spacing + text_width;
-        let desired_size = Vec2::new(desired_width, 24.0);
+        let desired_size = Vec2::new(desired_width, 40.0); // 40dp = MD3 minimum touch target
 
         let (rect, mut response) = ui.allocate_exact_size(desired_size, Sense::click());
 
@@ -202,6 +202,7 @@ impl<'a> Widget for MaterialCheckbox<'a> {
         }
 
         let _visuals = ui.style().interact(&response);
+        // Center the 18dp visual box vertically within the 40dp touch target
         let checkbox_rect = Rect::from_min_size(
             Pos2::new(rect.min.x, rect.center().y - checkbox_size / 2.0),
             Vec2::splat(checkbox_size),

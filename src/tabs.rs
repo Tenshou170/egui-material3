@@ -292,11 +292,12 @@ impl<'a> Widget for MaterialTabs<'a> {
             );
             current_x += tab_width;
 
-            // Create unique ID for each tab using optional salt
+            // Create unique ID for each tab using optional salt, falling back to
+            // the parent ui's own ID so multiple tab bars don't collide by default.
             let tab_id = if let Some(ref salt) = self.id_salt {
                 egui::Id::new((salt, "tab", index))
             } else {
-                egui::Id::new(("tab", index))
+                ui.id().with(("tab", index))
             };
 
             let tab_response = ui.interact(tab_rect, tab_id, Sense::click());

@@ -183,7 +183,11 @@ impl<'a> MaterialSlider<'a> {
 
 impl<'a> Widget for MaterialSlider<'a> {
     fn ui(self, ui: &mut Ui) -> Response {
-        let slider_width = self.width.unwrap_or(200.0);
+        // Default to filling available width, reserving space for the value label.
+        let value_reserve = if self.show_value { 52.0 } else { 0.0 };
+        let slider_width = self.width.unwrap_or_else(|| {
+            (ui.available_width() - value_reserve).max(40.0)
+        });
         let height = 32.0;
 
         let desired_size = if self.text.is_some() || self.show_value {

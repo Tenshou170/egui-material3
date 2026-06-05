@@ -681,7 +681,7 @@ impl<'a> MaterialDialog<'a> {
             ActionType::Text => {
                 if response.hovered() {
                     (
-                        Color32::from_rgba_premultiplied(primary.r(), primary.g(), primary.b(), 20), // 8% opacity state layer
+                        Color32::from_rgba_unmultiplied(primary.r(), primary.g(), primary.b(), 20), // 8% opacity state layer
                         primary,
                         Color32::TRANSPARENT,
                     )
@@ -702,20 +702,18 @@ impl<'a> MaterialDialog<'a> {
         };
 
         // Draw button background
-        ui.painter().rect_filled(
-            rect, 20.0, // Full rounded corners
-            bg_color,
-        );
+        let btn_cr = crate::theme::get_global_corner_radius().unwrap_or(20.0);
+        ui.painter().rect_filled(rect, btn_cr, bg_color);
 
         // Draw state layer for pressed state
         if response.is_pointer_button_down_on() {
-            let pressed_overlay = Color32::from_rgba_premultiplied(
+            let pressed_overlay = Color32::from_rgba_unmultiplied(
                 text_color.r(),
                 text_color.g(),
                 text_color.b(),
                 31,
             ); // 12% opacity
-            ui.painter().rect_filled(rect, 20.0, pressed_overlay);
+            ui.painter().rect_filled(rect, btn_cr, pressed_overlay);
         }
 
         // Draw button text

@@ -349,27 +349,47 @@ impl Widget for MaterialSnackbar<'_> {
             return ui.allocate_response(Vec2::ZERO, Sense::hover());
         }
 
-        // Initialize show time when first rendered
-        if self.show_time.is_none() {
-            self.show_time = Some(Instant::now());
-            // Call onVisible callback
+        // Persist show_time in egui temp data keyed by this widget's ID so it
+        // survives across frames — the struct is rebuilt from scratch every frame
+        // by the caller, so storing it in self.show_time would always be None.
+        let show_time_key = ui.id().with("snackbar_show_time");
+        let persisted_show_time: Option<Instant> =
+            ui.ctx().data(|d| d.get_temp(show_time_key));
+
+        let show_time = if let Some(t) = persisted_show_time {
+            // Already running — use the stored instant
+            t
+        } else {
+            // First render: record now and persist it
+            let now = Instant::now();
+            ui.ctx().data_mut(|d| d.insert_temp(show_time_key, now));
+            // Call onVisible callback on first render
             if let Some(on_visible) = &self.on_visible {
                 on_visible();
             }
-        }
+            now
+        };
+
+        // Also honour any show_time baked into the struct (e.g. set via .show())
+        let effective_show_time = self.show_time.unwrap_or(show_time);
 
         // Check auto-dismiss
         let should_auto_dismiss =
-            if let (Some(auto_dismiss), Some(show_time)) = (self.auto_dismiss, self.show_time) {
-                show_time.elapsed() >= auto_dismiss
+            if let Some(auto_dismiss) = self.auto_dismiss {
+                effective_show_time.elapsed() >= auto_dismiss
             } else {
                 false
             };
 
         if should_auto_dismiss {
-            // Return empty response if auto-dismissed
+            // Clean up the persisted key so a future snackbar with the same ID
+            // starts fresh.
+            ui.ctx().data_mut(|d| d.remove::<Instant>(show_time_key));
             return ui.allocate_response(Vec2::ZERO, Sense::hover());
         }
+
+        // Propagate into self so the rest of the fn can use it normally
+        self.show_time = Some(effective_show_time);
 
         let (background_color, border_stroke) = self.get_snackbar_style();
 
@@ -652,24 +672,34 @@ impl Widget for MaterialSnackbarWithOffset<'_> {
             return ui.allocate_response(Vec2::ZERO, Sense::hover());
         }
 
-        // Initialize show time when first rendered
-        if self.snackbar.show_time.is_none() {
-            self.snackbar.show_time = Some(Instant::now());
-        }
+        // Persist show_time in egui temp data keyed by this widget's ID.
+        let show_time_key = ui.id().with("snackbar_show_time");
+        let persisted_show_time: Option<Instant> =
+            ui.ctx().data(|d| d.get_temp(show_time_key));
+
+        let show_time = if let Some(t) = persisted_show_time {
+            t
+        } else {
+            let now = Instant::now();
+            ui.ctx().data_mut(|d| d.insert_temp(show_time_key, now));
+            now
+        };
+
+        let effective_show_time = self.snackbar.show_time.unwrap_or(show_time);
 
         // Check auto-dismiss
-        let should_auto_dismiss = if let (Some(auto_dismiss), Some(show_time)) =
-            (self.snackbar.auto_dismiss, self.snackbar.show_time)
-        {
-            show_time.elapsed() >= auto_dismiss
+        let should_auto_dismiss = if let Some(auto_dismiss) = self.snackbar.auto_dismiss {
+            effective_show_time.elapsed() >= auto_dismiss
         } else {
             false
         };
 
         if should_auto_dismiss {
-            // Return empty response if auto-dismissed
+            ui.ctx().data_mut(|d| d.remove::<Instant>(show_time_key));
             return ui.allocate_response(Vec2::ZERO, Sense::hover());
         }
+
+        self.snackbar.show_time = Some(effective_show_time);
 
         let (background_color, border_stroke) = self.snackbar.get_snackbar_style();
 
