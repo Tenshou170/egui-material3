@@ -420,21 +420,31 @@ impl Widget for MaterialSnackbar<'_> {
         // Calculate close icon size
         let close_icon_width = if show_close_icon { 48.0 } else { 0.0 }; // 24px icon + padding
 
-        // Calculate available width for message
+        // Calculate available width for message.
+        // Derive from the actual parent UI width so the bar fits on narrow screens.
         let action_area_width = if let Some(galley) = &action_galley {
             galley.size().x + 64.0
         } else {
             0.0
         };
 
-        let max_message_width = 600.0 - action_area_width - icon_width - close_icon_width;
+        let available_ui_width = ui.available_width();
+        let effective_max_width = available_ui_width.max(120.0);
+        // Reserve left padding so the text doesn't butt up against the edge
+        let left_padding_reserve = if behavior == SnackBarBehavior::Floating { 16.0 } else { 24.0 };
+        let max_message_width = (effective_max_width
+            - action_area_width
+            - icon_width
+            - close_icon_width
+            - left_padding_reserve
+        ).max(80.0);
 
         // Calculate message text with width constraint
         let text_galley = ui.painter().layout(
             message.clone(),
             egui::FontId::proportional(14.0),
             label_text_color,
-            max_message_width.max(200.0),
+            max_message_width,
         );
 
         // Material Design padding
@@ -445,7 +455,8 @@ impl Widget for MaterialSnackbar<'_> {
         let action_spacing = if action_text.is_some() { 8.0 } else { 0.0 };
         let action_width = action_galley.as_ref().map_or(0.0, |g| g.size().x + 32.0);
 
-        // Calculate width following Material Design constraints
+        // Calculate width.  Always respect the actual available width so the bar
+        // never overflows on small screens.  MD3 min/max are advisory here.
         let content_width = icon_width
             + text_galley.size().x
             + action_width
@@ -453,23 +464,22 @@ impl Widget for MaterialSnackbar<'_> {
             + close_icon_width
             + label_padding.x
             + action_padding.x;
-        let min_width = 344.0;
-        let max_width = 672.0;
-        
+        let md3_max_width = 672.0_f32;
+
         // Apply custom width if specified (floating only)
         let snackbar_width = if let Some(custom_width) = width {
             if is_floating {
-                custom_width.clamp(min_width, max_width)
+                custom_width.min(md3_max_width).min(available_ui_width)
             } else {
-                content_width.max(min_width).min(max_width)
+                content_width.min(md3_max_width).min(available_ui_width)
             }
         } else {
-            let available_width = ui.available_width().max(min_width + 48.0) - 48.0;
+            // Use content width, capped to screen — no artificial minimum floor
+            // so the bar shrinks gracefully on narrow displays.
             content_width
-                .max(min_width)
-                .min(max_width)
-                .min(available_width)
-                .max(min_width)
+                .min(md3_max_width)
+                .min(available_ui_width)
+                .max(content_width) // never shrink below actual content
         };
 
         // Calculate dynamic height
@@ -710,21 +720,30 @@ impl Widget for MaterialSnackbarWithOffset<'_> {
         // Calculate close icon size
         let close_icon_width = if show_close_icon { 48.0 } else { 0.0 }; // 24px icon + padding
 
-        // Calculate available width for message
+        // Calculate available width for message.
+        // Derive from the actual parent UI width so the bar fits on narrow screens.
         let action_area_width = if let Some(galley) = &action_galley {
             galley.size().x + 64.0
         } else {
             0.0
         };
 
-        let max_message_width = 600.0 - action_area_width - icon_width - close_icon_width;
+        let available_ui_width = ui.available_width();
+        let effective_max_width = available_ui_width.max(120.0);
+        let left_padding_reserve = if behavior == SnackBarBehavior::Floating { 16.0 } else { 24.0 };
+        let max_message_width = (effective_max_width
+            - action_area_width
+            - icon_width
+            - close_icon_width
+            - left_padding_reserve
+        ).max(80.0);
 
         // Calculate message text with width constraint
         let text_galley = ui.painter().layout(
             message.clone(),
             egui::FontId::proportional(14.0),
             label_text_color,
-            max_message_width.max(200.0),
+            max_message_width,
         );
 
         // Material Design padding
@@ -735,7 +754,7 @@ impl Widget for MaterialSnackbarWithOffset<'_> {
         let action_spacing = if action_text.is_some() { 8.0 } else { 0.0 };
         let action_width = action_galley.as_ref().map_or(0.0, |g| g.size().x + 32.0);
 
-        // Calculate width following Material Design constraints
+        // Calculate width.  Always respect the actual available width.
         let content_width = icon_width
             + text_galley.size().x
             + action_width
@@ -743,23 +762,19 @@ impl Widget for MaterialSnackbarWithOffset<'_> {
             + close_icon_width
             + label_padding.x
             + action_padding.x;
-        let min_width = 344.0;
-        let max_width = 672.0;
-        
-        // Apply custom width if specified (floating only)
+        let md3_max_width = 672.0_f32;
+
         let snackbar_width = if let Some(custom_width) = width {
             if is_floating {
-                custom_width.clamp(min_width, max_width)
+                custom_width.min(md3_max_width).min(available_ui_width)
             } else {
-                content_width.max(min_width).min(max_width)
+                content_width.min(md3_max_width).min(available_ui_width)
             }
         } else {
-            let available_width = ui.available_width().max(min_width + 48.0) - 48.0;
             content_width
-                .max(min_width)
-                .min(max_width)
-                .min(available_width)
-                .max(min_width)
+                .min(md3_max_width)
+                .min(available_ui_width)
+                .max(content_width)
         };
 
         // Calculate dynamic height

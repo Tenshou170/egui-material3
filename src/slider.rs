@@ -265,25 +265,27 @@ impl<'a> Widget for MaterialSlider<'a> {
         let (track_active_color, track_inactive_color, thumb_color) = if !self.enabled {
             let disabled_color = get_global_color("onSurface").linear_multiply(0.38);
             (disabled_color, disabled_color, disabled_color)
-        } else if response.hovered() || response.dragged() {
-            (
-                Color32::from_rgba_premultiplied(
+        } else {
+            // Active track and thumb use the primary color directly — no alpha
+            // manipulation that would cause the over-saturated "overexposed" look.
+            (primary_color, surface_variant, effective_thumb_color)
+        };
+
+        // Draw state-layer ripple FIRST (behind everything) so it doesn't paint
+        // over the track or obscure the thumb.  MD3 spec: 20dp radius state layer.
+        if (response.hovered() || response.dragged()) && self.enabled {
+            let ripple_color = self.overlay_color.unwrap_or_else(|| {
+                Color32::from_rgba_unmultiplied(
                     primary_color.r(),
                     primary_color.g(),
                     primary_color.b(),
-                    200,
-                ),
-                surface_variant,
-                Color32::from_rgba_premultiplied(
-                    effective_thumb_color.r().saturating_add(20),
-                    effective_thumb_color.g().saturating_add(20),
-                    effective_thumb_color.b().saturating_add(20),
-                    255,
-                ),
-            )
-        } else {
-            (primary_color, surface_variant, effective_thumb_color)
-        };
+                    // 8% opacity on hover, 12% on press — unmultiplied alpha
+                    if response.dragged() { 30 } else { 20 },
+                )
+            });
+            // MD3 touch target / state layer radius = 20dp (40dp diameter)
+            ui.painter().circle_filled(thumb_center, 20.0, ripple_color);
+        }
 
         // Draw inactive track
         ui.painter()
@@ -302,7 +304,7 @@ impl<'a> Widget for MaterialSlider<'a> {
                     Vec2::new(secondary_x - thumb_x, track_rect.height()),
                 );
                 let secondary_color = self.secondary_active_color.unwrap_or_else(|| {
-                    Color32::from_rgba_premultiplied(
+                    Color32::from_rgba_unmultiplied(
                         primary_color.r(),
                         primary_color.g(),
                         primary_color.b(),
@@ -327,16 +329,11 @@ impl<'a> Widget for MaterialSlider<'a> {
         // Draw thumb based on shape
         match self.thumb_shape {
             ThumbShape::Round => {
-                let thumb_radius = if response.hovered() || response.dragged() {
-                    12.0
-                } else {
-                    10.0
-                };
-                ui.painter()
-                    .circle_filled(thumb_center, thumb_radius, thumb_color);
+                // MD3 spec: 20dp thumb diameter (10dp radius) at rest; no size
+                // change on hover — the state layer handles the visual feedback.
+                ui.painter().circle_filled(thumb_center, 10.0, thumb_color);
             }
             ThumbShape::Handle => {
-                // Handle shape: rounded rectangle
                 let handle_width = if response.hovered() || response.dragged() {
                     8.0
                 } else {
@@ -349,24 +346,6 @@ impl<'a> Widget for MaterialSlider<'a> {
                 );
                 ui.painter().rect_filled(handle_rect, 2.0, thumb_color);
             }
-        }
-
-        // Add ripple effect when interacting
-        if response.hovered() && self.enabled {
-            let ripple_color = self.overlay_color.unwrap_or_else(|| {
-                Color32::from_rgba_premultiplied(
-                    primary_color.r(),
-                    primary_color.g(),
-                    primary_color.b(),
-                    30,
-                )
-            });
-            let ripple_radius = match self.thumb_shape {
-                ThumbShape::Round => 28.0,
-                ThumbShape::Handle => 24.0,
-            };
-            ui.painter()
-                .circle_filled(thumb_center, ripple_radius, ripple_color);
         }
 
         // Draw value indicator if enabled and dragging
@@ -609,20 +588,22 @@ impl<'a> Widget for MaterialRangeSlider<'a> {
         let (track_active_color, track_inactive_color, thumb_color) = if !self.enabled {
             let disabled_color = get_global_color("onSurface").linear_multiply(0.38);
             (disabled_color, disabled_color, disabled_color)
-        } else if response.hovered() || response.dragged() {
-            (
-                Color32::from_rgba_premultiplied(
-                    primary_color.r(),
-                    primary_color.g(),
-                    primary_color.b(),
-                    200,
-                ),
-                surface_variant,
-                primary_color,
-            )
         } else {
             (primary_color, surface_variant, primary_color)
         };
+
+        // Draw state-layer ripple FIRST (behind track and thumbs).
+        // MD3 state layer radius = 20dp.
+        if (response.hovered() || response.dragged()) && self.enabled {
+            let ripple_color = Color32::from_rgba_unmultiplied(
+                primary_color.r(),
+                primary_color.g(),
+                primary_color.b(),
+                if response.dragged() { 30 } else { 20 },
+            );
+            ui.painter().circle_filled(start_center, 20.0, ripple_color);
+            ui.painter().circle_filled(end_center, 20.0, ripple_color);
+        }
 
         // Draw inactive track (full width)
         ui.painter()
@@ -639,19 +620,11 @@ impl<'a> Widget for MaterialRangeSlider<'a> {
                 .rect_filled(active_track_rect, 2.0, track_active_color);
         }
 
-        // Draw thumbs
-        let thumb_radius = if response.hovered() || response.dragged() {
-            12.0
-        } else {
-            10.0
-        };
-
+        // Draw thumbs — fixed 10dp radius per MD3 spec
         match self.thumb_shape {
             ThumbShape::Round => {
-                ui.painter()
-                    .circle_filled(start_center, thumb_radius, thumb_color);
-                ui.painter()
-                    .circle_filled(end_center, thumb_radius, thumb_color);
+                ui.painter().circle_filled(start_center, 10.0, thumb_color);
+                ui.painter().circle_filled(end_center, 10.0, thumb_color);
             }
             ThumbShape::Handle => {
                 let handle_width = if response.hovered() || response.dragged() {
@@ -675,20 +648,6 @@ impl<'a> Widget for MaterialRangeSlider<'a> {
                 ui.painter()
                     .rect_filled(end_handle_rect, 2.0, thumb_color);
             }
-        }
-
-        // Add ripple effects
-        if response.hovered() && self.enabled {
-            let ripple_color = Color32::from_rgba_premultiplied(
-                primary_color.r(),
-                primary_color.g(),
-                primary_color.b(),
-                30,
-            );
-            ui.painter()
-                .circle_filled(start_center, 28.0, ripple_color);
-            ui.painter()
-                .circle_filled(end_center, 28.0, ripple_color);
         }
 
         // Draw label
