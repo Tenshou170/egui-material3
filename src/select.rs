@@ -15,6 +15,7 @@ use crate::theme::get_global_color;
 use egui::{
     self, Color32, FontFamily, FontId, Key, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2, Widget,
 };
+use std::borrow::Cow;
 
 /// Material Design select/dropdown component.
 ///
@@ -68,11 +69,11 @@ pub struct MaterialSelect<'a> {
     /// Reference to the currently selected option
     selected: &'a mut Option<usize>,
     /// List of available options
-    options: Vec<SelectOption>,
+    options: Vec<SelectOption<'a>>,
     /// Placeholder text when no option is selected
-    placeholder: String,
+    placeholder: Cow<'a, str>,
     /// Label text (floats above when focused or has content)
-    label: Option<String>,
+    label: Option<Cow<'a, str>>,
     /// Visual variant (filled or outlined)
     variant: SelectVariant,
     /// Whether the select is enabled for interaction
@@ -80,13 +81,13 @@ pub struct MaterialSelect<'a> {
     /// Fixed width of the select component
     width: Option<f32>,
     /// Error message to display below the select
-    error_text: Option<String>,
+    error_text: Option<Cow<'a, str>>,
     /// Helper text to display below the select
-    helper_text: Option<String>,
+    helper_text: Option<Cow<'a, str>>,
     /// Icon to show at the start of the select field
-    leading_icon: Option<String>,
+    leading_icon: Option<Cow<'a, str>>,
     /// Icon to show at the end of the select field (overrides default dropdown arrow)
-    trailing_icon: Option<String>,
+    trailing_icon: Option<Cow<'a, str>>,
     /// Whether to keep the dropdown open after selecting an option
     keep_open_on_select: bool,
     /// Enable filtering of options by typing
@@ -103,15 +104,17 @@ pub struct MaterialSelect<'a> {
     border_radius: Option<f32>,
     /// Menu alignment
     menu_alignment: MenuAlignment,
+    /// Whether to render as a smaller compact select field
+    small: bool,
 }
 
 /// Individual option in a select component.
 #[derive(Clone)]
-pub struct SelectOption {
+pub struct SelectOption<'a> {
     /// Unique identifier for this option
     value: usize,
     /// Display text for this option
-    text: String,
+    text: Cow<'a, str>,
 }
 
 impl<'a> MaterialSelect<'a> {
@@ -131,7 +134,7 @@ impl<'a> MaterialSelect<'a> {
         Self {
             selected,
             options: Vec::new(),
-            placeholder: "Select an option".to_string(),
+            placeholder: Cow::Borrowed("Select an option"),
             label: None,
             variant: SelectVariant::default(),
             enabled: true,
@@ -148,6 +151,7 @@ impl<'a> MaterialSelect<'a> {
             menu_max_height: None,
             border_radius: None,
             menu_alignment: MenuAlignment::default(),
+            small: false,
         }
     }
 
@@ -166,7 +170,7 @@ impl<'a> MaterialSelect<'a> {
     ///     .option(2, "Second Option"));
     /// # });
     /// ```
-    pub fn option(mut self, value: usize, text: impl Into<String>) -> Self {
+    pub fn option(mut self, value: usize, text: impl Into<Cow<'a, str>>) -> Self {
         self.options.push(SelectOption {
             value,
             text: text.into(),
@@ -187,7 +191,7 @@ impl<'a> MaterialSelect<'a> {
     ///     .placeholder("Choose your option"));
     /// # });
     /// ```
-    pub fn placeholder(mut self, placeholder: impl Into<String>) -> Self {
+    pub fn placeholder(mut self, placeholder: impl Into<Cow<'a, str>>) -> Self {
         self.placeholder = placeholder.into();
         self
     }
@@ -205,7 +209,7 @@ impl<'a> MaterialSelect<'a> {
     ///     .label("Color"));
     /// # });
     /// ```
-    pub fn label(mut self, label: impl Into<String>) -> Self {
+    pub fn label(mut self, label: impl Into<Cow<'a, str>>) -> Self {
         self.label = Some(label.into());
         self
     }
@@ -277,7 +281,7 @@ impl<'a> MaterialSelect<'a> {
     ///     .error_text("This field is required")); // Error message
     /// # });
     /// ```
-    pub fn error_text(mut self, text: impl Into<String>) -> Self {
+    pub fn error_text(mut self, text: impl Into<Cow<'a, str>>) -> Self {
         self.error_text = Some(text.into());
         self
     }
@@ -295,7 +299,7 @@ impl<'a> MaterialSelect<'a> {
     ///     .helper_text("Select an option from the list")); // Helper text
     /// # });
     /// ```
-    pub fn helper_text(mut self, text: impl Into<String>) -> Self {
+    pub fn helper_text(mut self, text: impl Into<Cow<'a, str>>) -> Self {
         self.helper_text = Some(text.into());
         self
     }
@@ -313,7 +317,7 @@ impl<'a> MaterialSelect<'a> {
     ///     .leading_icon("settings")); // Gear icon on the left
     /// # });
     /// ```
-    pub fn leading_icon(mut self, icon: impl Into<String>) -> Self {
+    pub fn leading_icon(mut self, icon: impl Into<Cow<'a, str>>) -> Self {
         self.leading_icon = Some(icon.into());
         self
     }
@@ -331,7 +335,7 @@ impl<'a> MaterialSelect<'a> {
     ///     .trailing_icon("check")); // Check icon on the right
     /// # });
     /// ```
-    pub fn trailing_icon(mut self, icon: impl Into<String>) -> Self {
+    pub fn trailing_icon(mut self, icon: impl Into<Cow<'a, str>>) -> Self {
         self.trailing_icon = Some(icon.into());
         self
     }
@@ -417,12 +421,19 @@ impl<'a> MaterialSelect<'a> {
         self.menu_alignment = alignment;
         self
     }
+
+    /// Make this a small/compact select field, suitable for tight configurations.
+    #[inline]
+    pub fn small(mut self) -> Self {
+        self.small = true;
+        self
+    }
 }
 
 impl<'a> Widget for MaterialSelect<'a> {
     fn ui(self, ui: &mut Ui) -> Response {
         let width = self.width.unwrap_or(200.0);
-        let height = 56.0;
+        let height = if self.small { 28.0 } else { 44.0 };
         let desired_size = Vec2::new(width, height);
 
         let (rect, mut response) = ui.allocate_exact_size(desired_size, Sense::click());
@@ -432,8 +443,8 @@ impl<'a> Widget for MaterialSelect<'a> {
             "select_widget",
             rect.min.x as i32,
             rect.min.y as i32,
-            self.placeholder.clone(),
-            self.label.clone(),
+            self.placeholder.as_ref(),
+            self.label.as_deref(),
         ));
         let mut open = ui.memory(|mem| mem.data.get_temp::<bool>(select_id).unwrap_or(false));
         
@@ -509,7 +520,7 @@ impl<'a> Widget for MaterialSelect<'a> {
         // Draw select field background
         match self.variant {
             SelectVariant::Filled => {
-                ui.painter().rect_filled(rect, 4.0, bg_color);
+                    ui.painter().rect_filled(rect, 4.0, bg_color);
                 // Draw bottom border for filled variant
                 if !self.enabled {
                     ui.painter().line_segment(
@@ -544,9 +555,9 @@ impl<'a> Widget for MaterialSelect<'a> {
         if should_show_label {
             let label_text = self.label.as_ref().unwrap();
             let label_font = if should_float_label {
-                FontId::new(12.0, FontFamily::Proportional)
+                FontId::new(if self.small { 9.0 } else { 11.0 }, FontFamily::Proportional)
             } else {
-                FontId::new(16.0, FontFamily::Proportional)
+                FontId::new(if self.small { 13.0 } else { 15.0 }, FontFamily::Proportional)
             };
             
             let label_color = if !self.enabled {
@@ -560,9 +571,9 @@ impl<'a> Widget for MaterialSelect<'a> {
             };
             
             let label_pos = if should_float_label {
-                Pos2::new(rect.min.x + 16.0, rect.min.y + 8.0)
+                Pos2::new(rect.min.x + 12.0, rect.min.y + if self.small { 2.0 } else { 5.0 })
             } else {
-                Pos2::new(rect.min.x + 16.0, rect.center().y)
+                Pos2::new(rect.min.x + 12.0, rect.center().y)
             };
             
             ui.painter().text(
@@ -579,16 +590,16 @@ impl<'a> Widget for MaterialSelect<'a> {
             self.options
                 .iter()
                 .find(|option| option.value == selected_value)
-                .map(|option| option.text.as_str())
-                .unwrap_or(&self.placeholder)
+                .map(|option| option.text.as_ref())
+                .unwrap_or(self.placeholder.as_ref())
         } else {
-            &self.placeholder
+            self.placeholder.as_ref()
         };
 
         // Use consistent font styling for select field
-        let select_font = FontId::new(16.0, FontFamily::Proportional);
-        let text_y_offset = if should_show_label && should_float_label { 12.0 } else { 0.0 };
-        let text_pos = Pos2::new(rect.min.x + 16.0, rect.center().y + text_y_offset);
+        let select_font = FontId::new(if self.small { 13.0 } else { 15.0 }, FontFamily::Proportional);
+        let text_y_offset = if should_show_label && should_float_label { if self.small { 6.0 } else { 9.0 } } else { 0.0 };
+        let text_pos = Pos2::new(rect.min.x + 12.0, rect.center().y + text_y_offset);
         
         let display_color = if self.selected.is_none() {
             on_surface_variant.linear_multiply(0.6)
@@ -605,8 +616,8 @@ impl<'a> Widget for MaterialSelect<'a> {
         );
 
         // Draw dropdown arrow
-        let arrow_center = Pos2::new(rect.max.x - 24.0, rect.center().y);
-        let arrow_size = 8.0;
+        let arrow_center = Pos2::new(rect.max.x - 20.0, rect.center().y);
+        let arrow_size = 7.0;
 
         if open {
             // Up arrow
@@ -662,14 +673,14 @@ impl<'a> Widget for MaterialSelect<'a> {
             let available_space_below = viewport_rect.max.y - rect.max.y - 4.0;
             let available_space_above = rect.min.y - viewport_rect.min.y - 4.0;
 
-            let item_height = 48.0;
-            let dropdown_padding = 16.0;
+            let item_height = 36.0;
+            let dropdown_padding = 8.0;
 
-            // Use menu_max_height if specified, otherwise use available space
+            // Use menu_max_height if specified, otherwise keep the menu compact.
             let effective_max_height = if let Some(max_h) = self.menu_max_height {
                 max_h
             } else {
-                available_space_below.max(available_space_above)
+                available_space_below.max(available_space_above).min(item_height * 4.0 + dropdown_padding)
             };
 
             let max_items_below =
@@ -705,7 +716,7 @@ impl<'a> Widget for MaterialSelect<'a> {
 
             // Use menu_width if specified, otherwise use field width
             let menu_width = self.menu_width.unwrap_or(width);
-            let menu_border_radius = self.border_radius.unwrap_or(8.0);
+            let menu_border_radius = self.border_radius.unwrap_or(6.0);
 
             let dropdown_pos = Pos2::new(rect.min.x, dropdown_y);
             let dropdown_size = Vec2::new(menu_width, dropdown_height);
@@ -715,7 +726,7 @@ impl<'a> Widget for MaterialSelect<'a> {
 
             // Clone/copy data needed in the Area closure
             let ctx = ui.ctx().clone();
-            let options = self.options.clone();
+            let options = self.options;
             let selected = self.selected;
             let keep_open_on_select = self.keep_open_on_select;
 
@@ -749,13 +760,13 @@ impl<'a> Widget for MaterialSelect<'a> {
                     // Render options with scrolling support
                     if scroll_needed && visible_items < options.len() {
                         let scroll_area_rect = Rect::from_min_size(
-                            Pos2::new(dropdown_rect.min.x + 8.0, dropdown_rect.min.y + 8.0),
-                            Vec2::new(menu_width - 16.0, dropdown_height - 16.0),
+                            Pos2::new(dropdown_rect.min.x + 4.0, dropdown_rect.min.y + 4.0),
+                            Vec2::new(menu_width - 8.0, dropdown_height - 8.0),
                         );
 
                         ui.scope_builder(egui::UiBuilder::new().max_rect(scroll_area_rect), |ui| {
                             egui::ScrollArea::vertical()
-                                .max_height(dropdown_height - 16.0)
+                                .max_height(dropdown_height - 8.0)
                                 .scroll_bar_visibility(
                                     egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded,
                                 )
@@ -763,7 +774,7 @@ impl<'a> Widget for MaterialSelect<'a> {
                                 .show(ui, |ui| {
                                     for option in &options {
                                         // Calculate text layout first to determine actual height needed
-                                        let available_width = ui.available_width() - 32.0;
+                                        let available_width = ui.available_width() - 24.0;
                                         let is_selected = *selected == Some(option.value);
                                         let text_color = if is_selected {
                                             get_global_color("primary")
@@ -772,7 +783,7 @@ impl<'a> Widget for MaterialSelect<'a> {
                                         };
 
                                         let galley = ui.painter().layout_job(egui::text::LayoutJob {
-                                            text: option.text.clone(),
+                                            text: option.text.to_string(),
                                             sections: vec![egui::text::LayoutSection {
                                                 leading_space: 0.0,
                                                 byte_range: 0..option.text.len(),
@@ -793,10 +804,10 @@ impl<'a> Widget for MaterialSelect<'a> {
                                             round_output_to_gui: true,
                                         });
 
-                                        // Use actual text height + padding, with minimum of 48.0
-                                        let min_height = 48.0;
+                                        // Use actual text height + padding, with a compact minimum.
+                                        let min_height = 36.0;
                                         let text_height = galley.size().y;
-                                        let vertical_padding = 12.0;
+                                        let vertical_padding = 8.0;
                                         let option_height = (text_height + vertical_padding).max(min_height);
 
                                         let (option_rect, option_response) = ui.allocate_exact_size(
@@ -826,7 +837,7 @@ impl<'a> Widget for MaterialSelect<'a> {
                                             ui.painter().rect_filled(option_rect, 4.0, option_bg_color);
                                         }
 
-                                        let text_pos = Pos2::new(option_rect.min.x + 16.0, option_rect.center().y - text_height / 2.0);
+                                        let text_pos = Pos2::new(option_rect.min.x + 12.0, option_rect.center().y - text_height / 2.0);
                                         ui.painter().galley(text_pos, galley, text_color);
 
                                         if option_response.clicked() {
@@ -845,7 +856,7 @@ impl<'a> Widget for MaterialSelect<'a> {
                         });
                     } else {
                         // Draw options without scrolling
-                        let mut current_y = dropdown_rect.min.y + 8.0;
+                        let mut current_y = dropdown_rect.min.y + 4.0;
                         let items_to_show = visible_items.min(options.len());
 
                         for option in options.iter().take(items_to_show) {
@@ -857,9 +868,9 @@ impl<'a> Widget for MaterialSelect<'a> {
                                 on_surface
                             };
 
-                            let available_width = menu_width - 16.0 - 32.0;
+                            let available_width = menu_width - 8.0 - 24.0;
                             let galley = ui.painter().layout_job(egui::text::LayoutJob {
-                                text: option.text.clone(),
+                                text: option.text.to_string(),
                                 sections: vec![egui::text::LayoutSection {
                                     leading_space: 0.0,
                                     byte_range: 0..option.text.len(),
@@ -880,15 +891,15 @@ impl<'a> Widget for MaterialSelect<'a> {
                                 round_output_to_gui: true,
                             });
 
-                            // Use actual text height + padding, with minimum of 48.0
-                            let min_height = 48.0;
+                            // Use actual text height + padding, with a compact minimum.
+                            let min_height = 36.0;
                             let text_height = galley.size().y;
-                            let vertical_padding = 12.0;
+                            let vertical_padding = 8.0;
                             let option_height = (text_height + vertical_padding).max(min_height);
 
                             let option_rect = Rect::from_min_size(
-                                Pos2::new(dropdown_rect.min.x + 8.0, current_y),
-                                Vec2::new(menu_width - 16.0, option_height),
+                                Pos2::new(dropdown_rect.min.x + 4.0, current_y),
+                                Vec2::new(menu_width - 8.0, option_height),
                             );
 
                             let option_response = ui.interact(
@@ -931,7 +942,7 @@ impl<'a> Widget for MaterialSelect<'a> {
                                 response.mark_changed();
                             }
 
-                            let text_pos = Pos2::new(option_rect.min.x + 16.0, option_rect.center().y - text_height / 2.0);
+                            let text_pos = Pos2::new(option_rect.min.x + 12.0, option_rect.center().y - text_height / 2.0);
                             ui.painter().galley(text_pos, galley, text_color);
 
                             current_y += option_height;

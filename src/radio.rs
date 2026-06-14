@@ -205,7 +205,7 @@ impl<'a, T: PartialEq + Clone> MaterialRadio<'a, T> {
 
 impl<'a, T: PartialEq + Clone> Widget for MaterialRadio<'a, T> {
     fn ui(self, ui: &mut Ui) -> Response {
-        let desired_size = Vec2::new(ui.available_width().min(300.0), 24.0);
+        let desired_size = Vec2::new(ui.available_width().min(300.0), 22.0);
 
         let (rect, mut response) = ui.allocate_exact_size(desired_size, Sense::click());
 
@@ -228,7 +228,7 @@ impl<'a, T: PartialEq + Clone> Widget for MaterialRadio<'a, T> {
         let on_surface_variant = get_global_color("onSurfaceVariant"); // Disabled @ 38%
         let outline = get_global_color("outline"); // Unselected ring (2dp stroke)
 
-        let radio_size = 20.0;
+        let radio_size = 16.0;
         let radio_rect = Rect::from_min_size(
             Pos2::new(rect.min.x, rect.center().y - radio_size / 2.0),
             Vec2::splat(radio_size),
@@ -259,7 +259,7 @@ impl<'a, T: PartialEq + Clone> Widget for MaterialRadio<'a, T> {
         // Draw hover background
         if fill_color != Color32::TRANSPARENT {
             ui.painter()
-                .circle_filled(radio_rect.center(), radio_size / 2.0 + 8.0, fill_color);
+                .circle_filled(radio_rect.center(), radio_size / 2.0 + 6.0, fill_color);
         }
 
         // Draw radio border
@@ -308,7 +308,7 @@ impl<'a, T: PartialEq + Clone> Widget for MaterialRadio<'a, T> {
                 }
             });
 
-            let ripple_radius = self.splash_radius.unwrap_or(radio_size / 2.0 + 12.0);
+            let ripple_radius = self.splash_radius.unwrap_or(radio_size / 2.0 + 8.0);
             ui.painter()
                 .circle_filled(radio_rect.center(), ripple_radius, ripple_color);
         }

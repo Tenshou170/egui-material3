@@ -173,7 +173,7 @@ impl<'a> MaterialCheckbox<'a> {
 
 impl<'a> Widget for MaterialCheckbox<'a> {
     fn ui(self, ui: &mut Ui) -> Response {
-        let checkbox_size = 18.0;
+        let checkbox_size = 14.0;
         let spacing = 4.0;
 
         // Calculate actual width needed: checkbox + spacing + text width
@@ -188,7 +188,7 @@ impl<'a> Widget for MaterialCheckbox<'a> {
         };
 
         let desired_width = checkbox_size + spacing + text_width;
-        let desired_size = Vec2::new(desired_width, 40.0); // 40dp = MD3 minimum touch target
+        let desired_size = Vec2::new(desired_width, 28.0);
 
         let (rect, mut response) = ui.allocate_exact_size(desired_size, Sense::click());
 
@@ -202,7 +202,7 @@ impl<'a> Widget for MaterialCheckbox<'a> {
         }
 
         let _visuals = ui.style().interact(&response);
-        // Center the 18dp visual box vertically within the 40dp touch target
+        // Center the visual box vertically within the compact touch target
         let checkbox_rect = Rect::from_min_size(
             Pos2::new(rect.min.x, rect.center().y - checkbox_size / 2.0),
             Vec2::splat(checkbox_size),
@@ -311,7 +311,7 @@ impl<'a> Widget for MaterialCheckbox<'a> {
 
         // M3 state layer overlay (40x40dp touch target, hover/focus/press states)
         if self.enabled {
-            let overlay_rect = Rect::from_center_size(checkbox_rect.center(), Vec2::splat(40.0));
+            let overlay_rect = Rect::from_center_size(checkbox_rect.center(), Vec2::splat(28.0));
             let overlay_color = if response.is_pointer_button_down_on() {
                 // Pressed state: 10% opacity (M3 interaction state)
                 if self.is_error {

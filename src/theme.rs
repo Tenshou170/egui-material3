@@ -1648,10 +1648,10 @@ where
     let _inverse_on_surface = theme.get_color_by_name("inverseOnSurface");
     let _inverse_primary = theme.get_color_by_name("inversePrimary");
 
-    let shadow = theme.get_color_by_name("shadow");
+    let _shadow = theme.get_color_by_name("shadow");
 
     // === Selection colors ===
-    visuals.selection.bg_fill = primary.linear_multiply(0.4);
+    visuals.selection.bg_fill = primary.linear_multiply(0.2);
     visuals.selection.stroke.color = primary;
 
     // === Hyperlink ===
@@ -1682,7 +1682,7 @@ where
         primary.r(),
         primary.g(),
         primary.b(),
-        40,
+        20,
     );
     visuals.widgets.hovered.bg_stroke.color = outline;
     visuals.widgets.hovered.fg_stroke.color = on_surface;
@@ -1719,18 +1719,13 @@ where
     visuals.window_stroke.width = 1.0;
 
     // === Window shadow ===
-    visuals.window_shadow.color = shadow;
-    visuals.popup_shadow.color = shadow;
+    visuals.window_shadow = egui::Shadow::NONE;
+    visuals.popup_shadow = egui::Shadow::NONE;
 
     // Apply global corner radius if set
     if let Some(radius) = GLOBAL_THEME.lock().ok().and_then(|t| t.shape_corner_radius) {
         let cr = egui::CornerRadius::same(radius.round() as u8);
         visuals.window_corner_radius = cr;
-        visuals.widgets.noninteractive.corner_radius = cr;
-        visuals.widgets.inactive.corner_radius = cr;
-        visuals.widgets.hovered.corner_radius = cr;
-        visuals.widgets.active.corner_radius = cr;
-        visuals.widgets.open.corner_radius = cr;
     }
 
     ctx.set_visuals(visuals);

@@ -402,7 +402,7 @@ impl Widget for MaterialSnackbar<'_> {
             show_time: _,
             position,
             corner_radius,
-            elevation: _,
+            elevation,
             behavior,
             width,
             margin,
@@ -552,27 +552,35 @@ impl Widget for MaterialSnackbar<'_> {
         let snackbar_rect = Rect::from_min_size(snackbar_pos, snackbar_size);
 
         // Draw Material Design elevation 6dp shadow
-        let shadow_layers = [
-            (
-                Vec2::new(0.0, 6.0),
-                10.0,
-                Color32::from_rgba_unmultiplied(0, 0, 0, 20),
-            ),
-            (
-                Vec2::new(0.0, 1.0),
-                18.0,
-                Color32::from_rgba_unmultiplied(0, 0, 0, 14),
-            ),
-            (
-                Vec2::new(0.0, 3.0),
-                5.0,
-                Color32::from_rgba_unmultiplied(0, 0, 0, 12),
-            ),
-        ];
+        let show_shadow = if let Some(elev) = elevation {
+            elev != egui::Shadow::NONE
+        } else {
+            ui.ctx().style().visuals.window_shadow != egui::Shadow::NONE
+        };
 
-        for (offset, blur_radius, color) in shadow_layers {
-            let shadow_rect = snackbar_rect.translate(offset).expand(blur_radius / 2.0);
-            ui.painter().rect_filled(shadow_rect, corner_radius, color);
+        if show_shadow {
+            let shadow_layers = [
+                (
+                    Vec2::new(0.0, 6.0),
+                    10.0,
+                    Color32::from_rgba_unmultiplied(0, 0, 0, 20),
+                ),
+                (
+                    Vec2::new(0.0, 1.0),
+                    18.0,
+                    Color32::from_rgba_unmultiplied(0, 0, 0, 14),
+                ),
+                (
+                    Vec2::new(0.0, 3.0),
+                    5.0,
+                    Color32::from_rgba_unmultiplied(0, 0, 0, 12),
+                ),
+            ];
+
+            for (offset, blur_radius, color) in shadow_layers {
+                let shadow_rect = snackbar_rect.translate(offset).expand(blur_radius / 2.0);
+                ui.painter().rect_filled(shadow_rect, corner_radius, color);
+            }
         }
 
         // Draw snackbar background
@@ -712,7 +720,7 @@ impl Widget for MaterialSnackbarWithOffset<'_> {
             show_time: _,
             position,
             corner_radius,
-            elevation: _,
+            elevation,
             behavior,
             width,
             margin,
@@ -857,27 +865,35 @@ impl Widget for MaterialSnackbarWithOffset<'_> {
         let snackbar_rect = Rect::from_min_size(snackbar_pos, snackbar_size);
 
         // Draw Material Design elevation 6dp shadow
-        let shadow_layers = [
-            (
-                Vec2::new(0.0, 6.0),
-                10.0,
-                Color32::from_rgba_unmultiplied(0, 0, 0, 20),
-            ),
-            (
-                Vec2::new(0.0, 1.0),
-                18.0,
-                Color32::from_rgba_unmultiplied(0, 0, 0, 14),
-            ),
-            (
-                Vec2::new(0.0, 3.0),
-                5.0,
-                Color32::from_rgba_unmultiplied(0, 0, 0, 12),
-            ),
-        ];
+        let show_shadow = if let Some(elev) = elevation {
+            elev != egui::Shadow::NONE
+        } else {
+            ui.ctx().style().visuals.window_shadow != egui::Shadow::NONE
+        };
 
-        for (offset, blur_radius, color) in shadow_layers {
-            let shadow_rect = snackbar_rect.translate(offset).expand(blur_radius / 2.0);
-            ui.painter().rect_filled(shadow_rect, corner_radius, color);
+        if show_shadow {
+            let shadow_layers = [
+                (
+                    Vec2::new(0.0, 6.0),
+                    10.0,
+                    Color32::from_rgba_unmultiplied(0, 0, 0, 20),
+                ),
+                (
+                    Vec2::new(0.0, 1.0),
+                    18.0,
+                    Color32::from_rgba_unmultiplied(0, 0, 0, 14),
+                ),
+                (
+                    Vec2::new(0.0, 3.0),
+                    5.0,
+                    Color32::from_rgba_unmultiplied(0, 0, 0, 12),
+                ),
+            ];
+
+            for (offset, blur_radius, color) in shadow_layers {
+                let shadow_rect = snackbar_rect.translate(offset).expand(blur_radius / 2.0);
+                ui.painter().rect_filled(shadow_rect, corner_radius, color);
+            }
         }
 
         // Draw snackbar background
