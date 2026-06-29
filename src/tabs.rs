@@ -59,6 +59,13 @@ pub struct MaterialTabs<'a> {
     id_salt: Option<String>,
     /// Optional custom height for the tab bar
     height: Option<f32>,
+    /// If true, tabs are sized to content width (scrollable M3 variant)
+    /// instead of dividing available width equally (fixed M3 variant).
+    scrollable: bool,
+    /// If true, use a compact height (32dp) for tight layouts.
+    compact: bool,
+    /// Optional explicit total width; overrides available_width() measurement.
+    explicit_width: Option<f32>,
 }
 
 /// Individual tab item data.
@@ -100,6 +107,9 @@ impl<'a> MaterialTabs<'a> {
             variant,
             id_salt: None,
             height: None,
+            scrollable: false,
+            compact: false,
+            explicit_width: None,
         }
     }
 
@@ -235,17 +245,70 @@ impl<'a> MaterialTabs<'a> {
         self.height = Some(height);
         self
     }
+
+    /// Set an explicit total width for the tab bar.
+    ///
+    /// Use this when the available_width() in the current layout context
+    /// does not reflect the true container width (e.g. inside cross-justified
+    /// layouts where the ui rect is narrower than the window).
+    pub fn width(mut self, width: f32) -> Self {
+        // Store in the height field slot isn't available — add a dedicated field.
+        // We repurpose the existing available_width measurement at render time.
+        self.explicit_width = Some(width);
+        self
+    }
+
+    /// Enable scrollable mode.
+    ///
+    /// In scrollable mode, each tab is sized to fit its content (label width
+    /// plus horizontal padding) rather than dividing the available width
+    /// equally. Per the M3 spec, use scrollable tabs when there are many
+    /// tabs or the container is narrow.
+    ///
+    /// Wrap the widget in an `egui::ScrollArea::horizontal()` for proper
+    /// overflow scrolling.
+    ///
+    /// # Example
+    /// ```rust
+    /// # egui::__run_test_ui(|ui| {
+    /// let mut tab_index = 0;
+    /// ui.add(MaterialTabs::primary(&mut tab_index)
+    ///     .tab("Home")
+    ///     .tab("Profile")
+    ///     .scrollable());
+    /// # });
+    /// ```
+    pub fn scrollable(mut self) -> Self {
+        self.scrollable = true;
+        self
+    }
+
+    /// Enable compact mode.
+    ///
+    /// Reduces the tab bar height to 32dp (from the standard 46dp) for
+    /// use in tight layouts like embedded config editors or narrow windows.
+    pub fn compact(mut self) -> Self {
+        self.compact = true;
+        self
+    }
 }
 
 /// M3 tab height constants
 const TAB_HEIGHT_TEXT_ONLY: f32 = 46.0;
 const TAB_HEIGHT_WITH_ICON: f32 = 72.0;
+/// M3 compact tab height constant — used by callers that need to allocate
+/// an exact rect for the tab bar before rendering.
+pub const TAB_HEIGHT_COMPACT: f32 = 32.0;
 /// M3 indicator constants
 const PRIMARY_INDICATOR_HEIGHT: f32 = 3.0;
 const SECONDARY_INDICATOR_HEIGHT: f32 = 2.0;
 const INDICATOR_TOP_ROUNDING: f32 = 3.0;
 /// M3 divider
 const DIVIDER_HEIGHT: f32 = 1.0;
+/// M3 scrollable tab horizontal padding (each side)
+const SCROLLABLE_TAB_PADDING: f32 = 24.0;
+/// M3 minimum tab width for touch targets
+const MIN_TAB_WIDTH: f32 = 48.0;
 /// M3 label font size
 const LABEL_FONT_SIZE: f32 = 12.0;
 const ICON_FONT_SIZE: f32 = 16.0;
@@ -253,16 +316,39 @@ const ICON_FONT_SIZE: f32 = 16.0;
 impl<'a> Widget for MaterialTabs<'a> {
     fn ui(self, ui: &mut Ui) -> Response {
         let has_icons = self.tabs.iter().any(|t| t.icon.is_some());
-        let tab_height = self
-            .height
-            .unwrap_or(if has_icons { TAB_HEIGHT_WITH_ICON } else { TAB_HEIGHT_TEXT_ONLY });
+        let tab_height = self.height.unwrap_or(if self.compact {
+            TAB_HEIGHT_COMPACT
+        } else if has_icons {
+            TAB_HEIGHT_WITH_ICON
+        } else {
+            TAB_HEIGHT_TEXT_ONLY
+        });
         let label_font = FontId::proportional(LABEL_FONT_SIZE);
         let icon_font = FontId::proportional(ICON_FONT_SIZE);
 
-        let available_width = ui.available_width();
-        let tab_widths = vec![available_width / self.tabs.len().max(1) as f32; self.tabs.len()];
+        let available_width = self.explicit_width.unwrap_or_else(|| ui.available_width());
 
-        let desired_size = Vec2::new(available_width, tab_height);
+        // Compute per-tab widths: fixed (equal) or scrollable (content-sized)
+        let tab_widths: Vec<f32> = if self.scrollable {
+            self.tabs.iter().map(|tab| {
+                let galley = ui.painter().layout_no_wrap(
+                    tab.label.clone(),
+                    label_font.clone(),
+                    ui.visuals().text_color(),
+                );
+                (galley.size().x + SCROLLABLE_TAB_PADDING * 2.0).max(MIN_TAB_WIDTH)
+            }).collect()
+        } else {
+            vec![available_width / self.tabs.len().max(1) as f32; self.tabs.len()]
+        };
+
+        let total_width: f32 = if self.scrollable {
+            tab_widths.iter().sum()
+        } else {
+            available_width
+        };
+
+        let desired_size = Vec2::new(total_width, tab_height);
         let (rect, mut response) = ui.allocate_exact_size(desired_size, Sense::hover());
 
         // M3 Color Roles - Tabs
@@ -273,12 +359,23 @@ impl<'a> Widget for MaterialTabs<'a> {
         let on_surface_variant = get_global_color("onSurfaceVariant"); // Unselected tab text/icon
         let outline_variant = get_global_color("outlineVariant"); // Secondary tabs divider
 
-        // Draw tab bar background based on variant
+        // Draw tab bar background based on variant.
         let bg_color = match self.variant {
-            TabVariant::Primary => surface_container, // Filled container for primary tabs
-            TabVariant::Secondary => surface, // Surface background for secondary tabs
+            TabVariant::Primary => surface_container,
+            TabVariant::Secondary => surface,
         };
-        ui.painter().rect_filled(rect, 0.0, bg_color);
+        // Always fill the full available_width (or explicit_width) even if
+        // the allocated rect is slightly narrower due to layout context.
+        let bg_fill_w = if self.scrollable {
+            rect.width().max(available_width)
+        } else {
+            available_width
+        };
+        let bg_rect = Rect::from_min_size(
+            rect.min,
+            Vec2::new(bg_fill_w, tab_height),
+        );
+        ui.painter().rect_filled(bg_rect, 0.0, bg_color);
 
         // Draw tabs
         let mut any_clicked = false;
@@ -342,7 +439,25 @@ impl<'a> Widget for MaterialTabs<'a> {
                     state_layer_color.b(),
                     20, // ~8% opacity
                 );
-                ui.painter().rect_filled(tab_rect, 0.0, hover_color);
+                match self.variant {
+                    TabVariant::Primary => {
+                        let galley = ui.painter().layout_no_wrap(
+                            tab.label.clone(),
+                            label_font.clone(),
+                            text_color,
+                        );
+                        let label_width = galley.size().x + 16.0;
+                        let hover_x = tab_rect.center().x - label_width / 2.0;
+                        let hover_rect = Rect::from_min_max(
+                            Pos2::new(hover_x, tab_rect.min.y + 4.0),
+                            Pos2::new(hover_x + label_width, tab_rect.max.y - 4.0),
+                        );
+                        ui.painter().rect_filled(hover_rect, CornerRadius::same(8), hover_color);
+                    }
+                    TabVariant::Secondary => {
+                        ui.painter().rect_filled(tab_rect, 0.0, hover_color);
+                    }
+                }
             }
 
             // Handle click
@@ -354,8 +469,11 @@ impl<'a> Widget for MaterialTabs<'a> {
             // Layout and draw tab content
             if let Some(icon) = &tab.icon {
                 // Icon + text layout: icon above label
-                let icon_y = tab_rect.center().y - 10.0;
-                let label_y = tab_rect.center().y + 12.0;
+                let (icon_y, label_y) = if tab_height < 60.0 {
+                    (tab_rect.center().y - 7.0, tab_rect.center().y + 9.0)
+                } else {
+                    (tab_rect.center().y - 10.0, tab_rect.center().y + 12.0)
+                };
 
                 // Draw icon as text (emoji/unicode)
                 ui.painter().text(

@@ -60,6 +60,7 @@ futures = { version = "0.3", optional = true } # for spreadsheet feature (async 
 # async-std for native spreadsheet feature - moved to target-specific section below
 
 [dev-dependencies]
+eframe = { version = "0.33", features = ["default_fonts"] }
 egui_extras = { version = "0.33", default-features = false, features = ["image", "svg", "svg_text"] }
 # egui_extras = { git = "https://github.com/emilk/egui", default-features = false, features = ["image", "svg", "svg_text"] }
 

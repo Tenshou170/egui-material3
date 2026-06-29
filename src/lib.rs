@@ -270,6 +270,8 @@ pub mod toolbar;
 pub mod tooltip;
 pub mod topappbar;
 pub mod treeview;
+pub mod textfield;
+pub mod navigation_rail;
 
 pub use {
     actionsheet::{action_sheet, ActionButton, ActionGroup, MaterialActionSheet},
@@ -335,6 +337,8 @@ pub use {
         MaterialTopAppBar, TopAppBarVariant,
     },
     treeview::{tree_view, MaterialTreeView, TreeViewItem, TreeViewState},
+    textfield::{MaterialTextField, TextFieldVariant, MaterialNumberField},
+    navigation_rail::{MaterialNavigationRail, NavRailItem},
 };
 
 #[cfg(feature = "spreadsheet")]

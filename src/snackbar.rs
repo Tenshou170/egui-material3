@@ -477,13 +477,16 @@ impl Widget for MaterialSnackbar<'_> {
 
         // Calculate width.  Always respect the actual available width so the bar
         // never overflows on small screens.  MD3 min/max are advisory here.
+        // Use symmetric horizontal padding: label_padding.x on both left and right
+        // so the text is properly centered within the snackbar.
+        let right_padding = if action_text.is_some() { action_padding.x } else { label_padding.x };
         let content_width = icon_width
             + text_galley.size().x
             + action_width
             + action_spacing
             + close_icon_width
             + label_padding.x
-            + action_padding.x;
+            + right_padding;
         let md3_max_width = 672.0_f32;
 
         // Apply custom width if specified (floating only)

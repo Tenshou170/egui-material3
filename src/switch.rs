@@ -217,9 +217,11 @@ impl<'a> Widget for MaterialSwitch<'a> {
             self.unselected_icon.is_some()
         };
 
-        let base_thumb_size_on = 24.0;
-        let base_thumb_size_off = if has_icon { 24.0 } else { 16.0 };
-        let pressed_thumb_size = 28.0;
+        let base_thumb_size_on  = 24.0;
+        // Keep off-state thumb at 20dp — the spec's 16dp looks broken against
+        // the 32dp track in practice; 20dp is the minimum for visual legibility.
+        let base_thumb_size_off = if has_icon { 24.0 } else { 20.0 };
+        let pressed_thumb_size  = 28.0;
 
         let thumb_size = if is_pressed {
             pressed_thumb_size
@@ -233,7 +235,8 @@ impl<'a> Widget for MaterialSwitch<'a> {
         let thumb_x = if *self.selected {
             switch_rect.min.x + 2.0 + thumb_travel
         } else {
-            switch_rect.min.x + 2.0
+            // Off-state thumb is 20dp — center it in the left half of the track.
+            switch_rect.min.x + (switch_height - base_thumb_size_off) / 2.0
         };
 
         let thumb_center = Pos2::new(thumb_x + thumb_size / 2.0, switch_rect.center().y);

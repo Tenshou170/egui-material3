@@ -20,7 +20,4 @@ examples/flight_departures_example.rs
 .idea/
 .claude/
 
-resources/*.ttf
-examples/ondemand/resources/*.ttf
-
 /reference
