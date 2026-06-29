@@ -1,637 +1,336 @@
 # egui-material3
 
-A Material Design component library for egui, providing Material Design 3 components with theme support.
+A Material Design 3 component library for [egui](https://github.com/emilk/egui), providing
+MD3-styled widgets with comprehensive theming support.
 
-## Screenshots
+> [!IMPORTANT]  
+> **This is a fork** of [nikescar/egui-material3](https://github.com/nikescar/egui-material3), maintained as a dependency for [Hachimi-Edge](https://github.com/Tenshou170/Hachimi-Edge).
+> It contains layout fixes, new components, and MD3 compliance improvements not yet in upstream.
 
-<img src="./resources/screenshot.png" alt="Material Design Components" width="600"/>
+## Changes from upstream (v0.0.10)
+
+- **New: `MaterialNavigationRail`** — vertical destination rail with icon pill indicators, labels, and custom widths, conforming to the 2024 MD3 spec
+- **New: `MaterialTextField`** — MD3 filled/outlined text input with focus indicator, correct inner margins, and reliable `desired_width` inside frame closures
+- **New: `MaterialNumberField`** — numeric drag-and-type field with `.range()`, `.decimals()`, `.speed()`, `.suffix()`
+- **`MaterialTabs`** — added `.width(f32)` for explicit container width; `.compact()` mode; background fill covers full width edge-to-edge in fixed mode
+- **`MaterialSelect`** — added `.small()` (28dp); default width uses `available_width()`; displayed text clips before chevron; fixed dropdown z-order
+- **`MaterialSlider`** — MD3-spec state-layer (20dp, 8%/12% alpha); corrected track (4dp) and thumb (20dp) dimensions; state-layer drawn behind track
+- **`MaterialSwitch`** — off-state thumb size adjusted to 20dp for visual balance, and added M3-spec 40dp interaction/state-layer ripple
+- **`MaterialSnackbar`** — fixed `inverseOnSurface` color key; persistent show timer; responsive width; corrected asymmetric padding when actions are omitted
+- **`MaterialProgress`** — linear/circular determinate and indeterminate variants conforming to the 2024 MD3 spec, featuring custom track gaps and togglable/resizable stop indicators
+- **`MaterialCheckbox`** / **`MaterialRadio`** — MD3 density and touch target sizing
+- **`theme.rs`** — `get/set_global_corner_radius()` API; consistent surface role application
+
+---
 
 ## Installation
 
-Add egui-material3 to your project:
+You can use this crate either locally or using pinned git revision:
 
-```bash
-# Basic installation
-cargo add egui-material3
-
-# With optional features
-cargo add egui-material3 --features ondemand
-cargo add egui-material3 --features "svg_solar,spreadsheet"
-cargo add egui-material3 --features svg_emoji  # All icon collections
-```
-
-Or manually in `Cargo.toml`:
+Local:
 
 ```toml
 [dependencies]
-egui-material3 = "..."
-
-# With features
-egui-material3 = { version = "...", features = ["ondemand", "svg_solar"] }
+egui-material3 = { path = "../egui-material3", default-features = false }
 ```
 
-## Usage
-
-### Quick Start Example
-
-```rust
-use eframe::egui;
-use egui_material3::{
-    MaterialButton, MaterialCheckbox, MaterialSlider, MaterialChip,
-    MaterialBadge, MaterialSwitch, ButtonVariant,
-    theme::{setup_google_fonts, setup_local_fonts, setup_local_theme,
-           load_fonts, load_themes, update_window_background}
-};
-
-fn main() -> Result<(), eframe::Error> {
-    let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([800.0, 600.0]),
-        ..Default::default()
-    };
-
-    eframe::run_native(
-        "Material Design App",
-        options,
-        Box::new(|cc| {
-            // Setup Material Design fonts and themes
-            setup_google_fonts(Some("Roboto"));
-            setup_local_fonts(Some("resources/MaterialSymbolsOutlined.ttf"));
-            setup_local_theme(None); // Use default theme
-
-            // Load fonts and themes
-            load_fonts(&cc.egui_ctx);
-            load_themes();
-
-            // Apply theme background
-            update_window_background(&cc.egui_ctx);
-
-            Ok(Box::<MyApp>::default())
-        }),
-    )
-}
-
-#[derive(Default)]
-struct MyApp {
-    checked: bool,
-    switch_on: bool,
-    slider_value: f32,
-    chip_selected: bool,
-}
-
-impl eframe::App for MyApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Material Design Components");
-
-            // Buttons with different variants
-            ui.horizontal(|ui| {
-                ui.add(MaterialButton::new("Filled").variant(ButtonVariant::Filled));
-                ui.add(MaterialButton::new("Outlined").variant(ButtonVariant::Outlined));
-                ui.add(MaterialButton::new("Text").variant(ButtonVariant::Text));
-            });
-
-            // Input controls
-            ui.add(MaterialCheckbox::new(&mut self.checked, "Check me"));
-            ui.add(MaterialSwitch::new(&mut self.switch_on, "Enable feature"));
-            ui.add(MaterialSlider::new(&mut self.slider_value, 0.0..=100.0));
-
-            // Chips and badges
-            ui.horizontal(|ui| {
-                ui.add(MaterialChip::new("Filter chip")
-                    .selected(&mut self.chip_selected));
-                ui.add(MaterialBadge::new().value(5).show(ui, |ui| {
-                    ui.add(MaterialButton::new("Inbox"));
-                }));
-            });
-        });
-    }
-}
+Pinned Git Revision:
+```toml
+[dependencies]
+egui-material3 = { git = "https://github.com/Tenshou170/egui-material3.git", rev = "cce5f3a0a4df85b151c70c772161a57736a6181c", default-features = false } 
 ```
 
-### Advanced Example
+For the upstream published version:
 
-Here's a more comprehensive example showcasing recent additions:
+```bash
+cargo add egui-material3
+```
+
+---
+
+## Quick Start
 
 ```rust
 use egui_material3::{
-    MaterialButton, MaterialBadge, MaterialToolbar, MaterialBreadcrumbs,
-    MaterialNotification, MaterialTimeline, MaterialTooltip, MaterialTreeView,
-    ButtonVariant, TimelineItem, TreeNode,
+    MaterialButton, MaterialCheckbox, MaterialSlider, MaterialSelect, SelectVariant,
+    MaterialTextField, MaterialNumberField, MaterialTabs, tabs::tabs_primary,
+    theme::get_global_color, MaterialNavigationRail, NavRailItem,
 };
-
-impl eframe::App for MyApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            // Toolbar with actions
-            ui.add(MaterialToolbar::new()
-                .title("My Application")
-                .add_action("search", || println!("Search"))
-                .add_action("settings", || println!("Settings")));
-
-            // Breadcrumb navigation
-            ui.add(MaterialBreadcrumbs::new()
-                .add_item("Home", || println!("Home"))
-                .add_item("Projects", || println!("Projects"))
-                .add_current("Current Project"));
-
-            // Badge example
-            ui.horizontal(|ui| {
-                ui.add(MaterialBadge::new().value(3).show(ui, |ui| {
-                    ui.add(MaterialButton::new("Messages"));
-                }));
-
-                // Tooltip example
-                MaterialTooltip::new("Click to refresh").show(ui, |ui| {
-                    ui.add(MaterialButton::new("Refresh")
-                        .variant(ButtonVariant::Outlined));
-                });
-            });
-
-            // Notification
-            ui.add(MaterialNotification::new("Update available")
-                .description("Version 2.0 is ready to install")
-                .add_action("Update", || println!("Updating..."))
-                .closable(true));
-
-            // Timeline
-            let events = vec![
-                TimelineItem::new("Project created").with_timestamp("2024-01-01"),
-                TimelineItem::new("First commit").with_timestamp("2024-01-02"),
-                TimelineItem::new("Version 1.0 released").with_timestamp("2024-02-01"),
-            ];
-            ui.add(MaterialTimeline::new(events));
-
-            // TreeView for hierarchical data
-            let tree = vec![
-                TreeNode::new("Root")
-                    .add_child(TreeNode::new("Child 1"))
-                    .add_child(TreeNode::new("Child 2")
-                        .add_child(TreeNode::new("Grandchild"))),
-            ];
-            ui.add(MaterialTreeView::new(tree));
-        });
-    }
-}
 ```
+
+### Buttons
+
+```rust
+// Filled (primary action)
+ui.add(MaterialButton::filled("Save"));
+
+// Outlined (secondary action)
+ui.add(MaterialButton::outlined("Cancel"));
+
+// Text (tertiary / low-emphasis)
+ui.add(MaterialButton::text("Learn more"));
+
+// Filled tonal (mid-emphasis)
+ui.add(MaterialButton::filled_tonal("Continue"));
+
+// With selected state (toggle)
+ui.add(MaterialButton::filled_tonal("Dark").selected(is_dark));
+
+// Truncate long label text instead of overflowing
+ui.add(MaterialButton::text("Restore Defaults").truncate());
+```
+
+### Text fields
+
+```rust
+// Filled variant (default) — MD3 56dp height, surfaceContainerHighest background
+ui.add(MaterialTextField::filled(&mut my_string));
+
+// With hint and focus lock (for URLs, paths, etc.)
+let res = ui.add(
+    MaterialTextField::filled(&mut config.meta_index_url)
+        .lock_focus(true)
+);
+
+// Explicit width (e.g. inside a horizontal layout)
+ui.add(MaterialTextField::filled(&mut text).width(200.0));
+
+// Outlined variant
+ui.add(MaterialTextField::outlined(&mut text));
+
+// Numeric field — drag to change, or type directly
+ui.add(MaterialNumberField::filled(&mut my_f32)
+    .range(0.0..=100.0)
+    .decimals(2));
+
+// With suffix label
+ui.add(MaterialNumberField::filled(&mut timeout_ms)
+    .range(100..=30000)
+    .speed(100.0)
+    .suffix("ms"));
+```
+
+### Select / Dropdown
+
+```rust
+let mut selected: Option<usize> = Some(0);
+
+// Fills available column width by default
+let mut select = MaterialSelect::new(&mut selected)
+    .variant(SelectVariant::Outlined)
+    .placeholder("Choose...")
+    .small();     // compact 28dp height for grid use
+
+for (i, label) in choices.iter().enumerate() {
+    select = select.option(i, label);
+}
+ui.add(select);
+
+// When inside a grid cell, capture column width BEFORE any horizontal layout:
+let col_w = ui.available_width();
+ui.add(
+    MaterialSelect::new(&mut selected)
+        .variant(SelectVariant::Outlined)
+        .width(col_w)
+        .small()
+);
+```
+
+### Slider
+
+```rust
+// MD3 slider — primary-colored track, round thumb, state-layer ripple
+ui.add(
+    MaterialSlider::new(&mut value, 0.0..=1.0)
+        .show_value(false)
+        .show_value_indicator(false)
+        .width(available_w)
+);
+
+// With step and value indicator
+ui.add(
+    MaterialSlider::new(&mut value, 0.0..=20.0)
+        .step(0.5)
+        .show_value_indicator(true)
+);
+```
+
+### Tabs
+
+```rust
+let mut tab_idx: usize = 0;
+
+// Fixed equal-width tabs (MD3 "fixed tabs" spec)
+// .width() overrides available_width() for reliable edge-to-edge rendering
+ui.add(
+    tabs_primary(&mut tab_idx)
+        .tab("General")
+        .tab("Graphics")
+        .tab("Gameplay")
+        .tab("Advanced")
+        .width(ui.max_rect().width())  // pass window inner width explicitly
+        .compact()
+        .id_salt("my_tabs"),
+);
+
+// Scrollable tabs (MD3 "scrollable tabs" spec) — wrap in horizontal ScrollArea
+egui::ScrollArea::horizontal().show(ui, |ui| {
+    ui.add(
+        tabs_primary(&mut tab_idx)
+            .tab("Tab 1")
+            .tab("Tab 2")
+            .tab("Tab 3")
+            .scrollable()
+            .id_salt("scrollable_tabs"),
+    );
+});
+```
+
+### Checkbox
+
+```rust
+ui.add(MaterialCheckbox::new(&mut enabled, "Enable feature"));
+
+// Disabled state
+ui.add(MaterialCheckbox::new(&mut value, "").enabled(false));
+```
+
+### Navigation Rail
+
+```rust
+let mut selected = 0;
+let items = &[
+    NavRailItem::new("\u{e8b9}", "General"),
+    NavRailItem::new("\u{eb97}", "Graphics"),
+    NavRailItem::new("\u{e30f}", "Gameplay"),
+    NavRailItem::new("\u{e869}", "Advanced"),
+];
+
+// Display the vertical navigation rail
+let (response, changed) = MaterialNavigationRail::new(&mut selected, items)
+    .width(80.0) // optional width override
+    .show(ui);
+```
+
+---
 
 ## Theme System
 
-The library provides comprehensive Material Design 3 theming capabilities:
+The theme system implements the full MD3 color scheme via HCT color space.
 
-### Build-time Theme Inclusion
-
-Themes are automatically included from JSON files during compilation:
+### Applying a theme
 
 ```rust
-use egui_material3::theme::{setup_local_theme, load_themes};
+use egui_material3::theme::get_global_color;
 
-// Uses themes from resources/ and examples/ directories automatically
-setup_local_theme(None);
-load_themes();
+// Retrieve any MD3 color role at render time
+let primary       = get_global_color("primary");
+let surface       = get_global_color("surface");
+let on_surface    = get_global_color("onSurface");
+let surface_cont  = get_global_color("surfaceContainer");
 ```
 
-### Runtime Theme Loading
+### MD3 color roles used by this fork
 
-Load custom themes dynamically:
+| Role | Used for |
+|---|---|
+| `primary` | Active slider track, tab indicator, focused field border, active navigation rail label |
+| `onPrimary` | Text/icon on primary-colored surfaces |
+| `surfaceContainer` | Tab bar background, navigation rail background |
+| `surfaceContainerHighest` | Text field background (filled variant) |
+| `onSurface` | Label text, time display |
+| `onSurfaceVariant` | Unselected tab labels, inactive field bottom line, inactive navigation rail elements |
+| `outline` | Outlined field border (unfocused) |
+| `outlineVariant` | Tab divider line |
+| `secondaryContainer` | Selected dropdown item background, active navigation rail indicator pill fill |
+| `onSecondaryContainer` | Active navigation rail icon color |
 
-```rust
-use egui_material3::theme::{setup_local_theme, load_themes};
-
-// Load specific theme file
-setup_local_theme(Some("path/to/my-theme.json"));
-load_themes();
-```
-
-### Theme Modes and Contrast Levels
-
-Dynamically change theme appearance at runtime:
-
-```rust
-use egui_material3::theme::{get_global_theme, update_window_background, ThemeMode, ContrastLevel};
-
-// Switch between light and dark modes
-if let Ok(mut theme) = get_global_theme().lock() {
-    theme.theme_mode = ThemeMode::Dark; // or ThemeMode::Light
-    theme.contrast_level = ContrastLevel::High; // Standard, Medium, or High
-}
-update_window_background(ctx);
-
-// Or toggle mode with a button
-if ui.add(MaterialButton::new("Toggle Dark Mode")).clicked() {
-    if let Ok(mut theme) = get_global_theme().lock() {
-        theme.theme_mode = match theme.theme_mode {
-            ThemeMode::Light => ThemeMode::Dark,
-            ThemeMode::Dark => ThemeMode::Light,
-        };
-    }
-    update_window_background(ctx);
-}
-```
-
-### Component Size Variants
-
-Many components support size variants for different design needs:
-
-```rust
-use egui_material3::{MaterialButton, MaterialChip, ButtonSize, ChipSize};
-
-// Small button for compact UIs
-ui.add(MaterialButton::new("Compact").size(ButtonSize::Small));
-
-// Standard size (default)
-ui.add(MaterialButton::new("Standard"));
-
-// Small chips for tags
-ui.add(MaterialChip::new("Tag").size(ChipSize::Small));
-```
+---
 
 ## Available Components
 
 ### Input & Selection
+- **`MaterialButton`** — filled, outlined, text, filled_tonal, elevated variants; `.selected()`, `.truncate()`
+- **`MaterialCheckbox`** — MD3 checkbox with enabled/disabled state
+- **`MaterialSwitch`** — toggle switch with visual size and ripple improvements *(fork addition)*
+- **`MaterialRadio`** / **`MaterialRadioGroup`** — radio buttons with list tile support
+- **`MaterialSlider`** / **`MaterialRangeSlider`** — primary-colored track, round/handle thumb, ripple
+- **`MaterialSelect`** — filled/outlined dropdown; auto-width, text clipping, `.small()` mode
+- **`MaterialTextField`** — filled/outlined text input; MD3 56dp height, focus indicator *(fork addition)*
+- **`MaterialNumberField`** — numeric drag-and-type field with range, decimals, suffix *(fork addition)*
+- **`MaterialChip`** — filter, assist, input, suggestion chips
 
-- **MaterialButton** - Material Design buttons with multiple variants (filled, outlined, text, elevated, tonal) and size options
-- **MaterialIconButton** - Icon buttons (standard, filled, filled tonal, outlined, toggle)
-- **MaterialCheckbox** - Checkboxes following Material Design guidelines
-- **MaterialSwitch** - Toggle switches
-- **MaterialRadio** / **MaterialRadioGroup** - Radio button groups with list tile support
-- **MaterialSlider** / **MaterialRangeSlider** - Sliders with Material Design styling
-- **MaterialSelect** - Dropdown selection components with menu alignment options
-- **MaterialChip** - Filter, assist, input, and suggestion chips with size variants
+### Navigation
+- **`MaterialTabs`** — primary/secondary variants; fixed equal-width and scrollable modes; `.width()` *(fork addition)*
+- **`MaterialNavigationRail`** — vertical destination rail with icon pill indicators and labels *(fork addition)*
+- **`MaterialDrawer`** — permanent, dismissible, modal, standard
+- **`MaterialTopAppBar`** — standard, center-aligned, medium, large
+- **`MaterialToolbar`** — flexible toolbar with action items
+- **`MaterialBreadcrumbs`** — breadcrumb navigation
+- **`MaterialMenu`** — context menus with nested support
 
-### Navigation & Layout
-
-- **MaterialTabs** - Tab navigation (primary and secondary variants)
-- **MaterialDrawer** - Navigation drawers (permanent, dismissible, modal, standard)
-- **MaterialTopAppBar** - App bars and toolbars (standard, center-aligned, medium, large)
-- **MaterialToolbar** - Flexible toolbar component with action items
-- **MaterialBreadcrumbs** - Breadcrumb navigation for hierarchical paths
-- **MaterialMenu** - Context menus and menu items with nested support
-
-### Feedback & Information
-
-- **MaterialDialog** - Modal dialogs and alerts
-- **MaterialSnackbar** - Toast notifications with optional actions
-- **MaterialNotification** - Notification cards with actions and dismissal
-- **MaterialBadge** - Badge indicators for counts and status
-- **MaterialProgress** - Progress indicators (circular and linear)
-- **MaterialTooltip** - Contextual tooltips with rich text support
-- **MaterialActionSheet** - Bottom sheets for action selection
+### Feedback
+- **`MaterialDialog`** — modal dialogs
+- **`MaterialSnackbar`** — toast notifications with optional actions
+- **`MaterialNotification`** — notification cards
+- **`MaterialBadge`** — count/status badge indicators
+- **`MaterialProgress`** — circular and linear progress indicators
+- **`MaterialTooltip`** — contextual tooltips
+- **`MaterialActionSheet`** — bottom sheet for action selection
 
 ### Data Display
+- **`MaterialCard2`** — elevated, filled, outlined
+- **`MaterialList`** — MD3 list with visual density control
+- **`MaterialDataTable`** — sortable, selectable data table
+- **`MaterialTimeline`** — chronological event display
+- **`MaterialTreeView`** — hierarchical tree with expand/collapse
 
-- **MaterialCard2** - Material Design cards (elevated, filled, outlined variants)
-- **MaterialList** - Lists following Material Design patterns with visual density control
-- **MaterialDataTable** - Data tables with sorting, selection, and custom cell content
-- **MaterialSpreadsheet** - Full-featured spreadsheet with DuckDB backend (requires `spreadsheet` feature)
-- **MaterialTimeline** - Timeline component for chronological data
-- **MaterialTreeView** - Hierarchical tree view with expand/collapse
+### Media & Layout
+- **`MaterialCarousel`** — horizontal carousel with drag support
+- **`MaterialImageList`** — standard, masonry, woven image lists
+- **`MaterialLayoutGrid`** — grid layout with tile bars
+- **`MaterialFab`** — floating action button (primary, secondary, tertiary, surface, branded)
 
-### Media & Content
+### Icons
+- **`MaterialIcon`** — Material Symbols font rendering
+- **`MaterialSymbol`** — outlined, rounded, sharp variants
 
-- **MaterialCarousel** - Carousel for displaying items in a scrollable view with mouse drag support
-- **MaterialImageList** - Image lists with online/offline support and smart caching (standard, masonry, woven variants)
-- **MaterialLayoutGrid** - Grid layout with tile bars
-- **MaterialFab** - Floating Action Buttons (primary, secondary, tertiary, surface, branded)
+---
 
-### Icons & Symbols
+## Optional Features
 
-- **MaterialIcon** - Material Design icons with font support
-- **MaterialSymbol** - Material Symbols rendering (outlined, rounded, sharp variants)
-
-## Common Patterns
-
-### Building a Complete UI
-
-Combine components to create rich user interfaces:
-
-```rust
-use egui_material3::*;
-
-impl eframe::App for MyApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Top app bar
-        egui::TopBottomPanel::top("top_bar").show(ctx, |ui| {
-            ui.add(MaterialTopAppBar::new()
-                .title("My App")
-                .add_action("notifications", |ui| {
-                    // Badge on icon button
-                    MaterialBadge::new().value(5).show(ui, |ui| {
-                        ui.add(MaterialIconButton::new("notifications"));
-                    });
-                }));
-        });
-
-        // Navigation drawer
-        egui::SidePanel::left("drawer").show(ctx, |ui| {
-            ui.add(MaterialDrawer::new()
-                .add_item("Home", "home", || println!("Home"))
-                .add_item("Settings", "settings", || println!("Settings")));
-        });
-
-        // Main content
-        egui::CentralPanel::default().show(ctx, |ui| {
-            // Action buttons with tooltips
-            ui.horizontal(|ui| {
-                MaterialTooltip::new("Create new item").show(ui, |ui| {
-                    if ui.add(MaterialButton::new("New")
-                        .variant(ButtonVariant::Filled)).clicked() {
-                        // Show action sheet
-                        self.show_action_sheet = true;
-                    }
-                });
-            });
-
-            // Data display with cards
-            ui.add(MaterialCard2::elevated()
-                .show(ui, |ui| {
-                    ui.heading("Recent Activity");
-                    ui.add(MaterialTimeline::new(self.recent_events.clone()));
-                }));
-
-            // Notifications
-            if self.has_updates {
-                ui.add(MaterialNotification::new("Update available")
-                    .add_action("Install", || self.install_update())
-                    .closable(true));
-            }
-        });
-
-        // Bottom action sheet
-        if self.show_action_sheet {
-            ui.add(MaterialActionSheet::new()
-                .add_action("Create Document", || println!("Document"))
-                .add_action("Create Folder", || println!("Folder"))
-                .on_dismiss(|| self.show_action_sheet = false));
-        }
-
-        // FAB (Floating Action Button)
-        egui::Area::new("fab")
-            .anchor(egui::Align2::RIGHT_BOTTOM, egui::vec2(-16.0, -16.0))
-            .show(ctx, |ui| {
-                if ui.add(MaterialFab::primary().icon("add")).clicked() {
-                    println!("FAB clicked");
-                }
-            });
-    }
-}
-```
-
-### Form with Validation
-
-Create forms with Material components:
-
-```rust
-ui.vertical(|ui| {
-    ui.label("User Information");
-
-    // Text inputs with validation
-    ui.add(MaterialTextField::new(&mut self.name)
-        .label("Full Name")
-        .required(true));
-
-    // Selection controls
-    ui.add(MaterialSelect::new(&mut self.country)
-        .label("Country")
-        .options(vec!["USA", "UK", "Canada"]));
-
-    // Checkboxes for preferences
-    ui.add(MaterialCheckbox::new(&mut self.newsletter,
-        "Subscribe to newsletter"));
-
-    ui.add(MaterialCheckbox::new(&mut self.terms,
-        "I agree to the terms"));
-
-    // Action buttons
-    ui.horizontal(|ui| {
-        if ui.add(MaterialButton::new("Submit")
-            .variant(ButtonVariant::Filled)
-            .enabled(self.terms)).clicked() {
-            self.submit_form();
-        }
-
-        ui.add(MaterialButton::new("Cancel")
-            .variant(ButtonVariant::Text));
-    });
-});
-```
-
-## Optional Icon & Emoji Collections
-
-The library provides three comprehensive SVG collections as optional features. Each can be enabled independently:
-
-- **Solar Icons** (`svg_solar`) - ~1,200 UI/UX icons with variants
-- **Noto Emoji** (`svg_noto`) - ~3,600 Google emojis with skin tone and gender variants
-- **Twemoji** (`svg_twemoji`) - ~3,700 Twitter emoji
-
-### Feature Configuration
-
-Choose the collections you need:
+| Feature | Description |
+|---|---|
+| `ondemand` | Online image support for `MaterialImageList` |
+| `spreadsheet` | Full spreadsheet widget with SQLite backend |
+| `svg_solar` | ~1,200 Solar UI/UX icons |
+| `svg_noto` | ~3,600 Noto emoji |
+| `svg_twemoji` | ~3,700 Twitter emoji |
+| `svg_emoji` | Enables all three SVG icon sets |
 
 ```toml
-[dependencies]
-# Enable individual collections (recommended - smaller binary size)
-egui-material3 = { version = "...", features = ["svg_solar"] }
-
-# Or enable specific combinations
-egui-material3 = { version = "...", features = ["svg_solar", "svg_noto"] }
-
-# Or enable all collections
-egui-material3 = { version = "...", features = ["svg_emoji"] }
+egui-material3 = { path = "../egui-material3", default-features = false }
+egui-material3 = { path = "../egui-material3", default-features = false, features = ["ondemand"] }
 ```
 
-### Usage
+---
 
-Icons and emojis are accessible through HashMaps with O(1) lookup:
+## Material Design 3 References
 
-```rust
-use egui_material3::svg_emoji::{SOLAR_ICONS, NOTO_EMOJIS, TWEMOJI};
+- [Material Design 3 — m3.material.io](https://m3.material.io/)
+- [MD3 Component specs](https://m3.material.io/components)
+- [MD3 Color system](https://m3.material.io/styles/color/system/overview)
+- [MD3 Typography](https://m3.material.io/styles/typography/overview)
 
-// Access Solar icons (requires svg_solar feature)
-if let Some(svg) = SOLAR_ICONS.get("home") {
-    // Use SVG data for rendering
-}
-
-// Access Noto emoji (requires svg_noto feature)
-// Filename format: "emoji_u" + unicode codepoint
-if let Some(svg) = NOTO_EMOJIS.get("emoji_u1f600") {
-    // 😀 Grinning face emoji
-}
-
-// Access Twemoji (requires svg_twemoji feature)
-// Filename format: unicode codepoint
-if let Some(svg) = TWEMOJI.get("1f600") {
-    // 😀 Grinning face emoji
-}
-```
-
-**Note**: SVG files are embedded at compile time when features are enabled. If building from crates.io (not git), files are automatically downloaded during build.
-
-## Features
-
-### OnDemand Feature
-
-Enable online image support for `MaterialImageList`:
-
-```toml
-[dependencies]
-egui-material3 = { version = "...", features = ["ondemand"] }
-```
-
-The `MaterialImageList` component supports multiple image sources:
-
-```rust
-use egui_material3::image_list;
-
-// Local image files
-ui.add(image_list()
-    .columns(3)
-    .item_spacing(8.0)
-    .items_from_paths(glob::glob("resources/*.png")?));
-
-// Online images (requires 'ondemand' feature)
-ui.add(image_list()
-    .columns(4)
-    .item_spacing(8.0)
-    .items_from_urls(vec![
-        "https://example.com/image1.jpg".to_string(),
-        "https://example.com/image2.png".to_string(),
-    ]));
-
-// Embedded images from byte arrays
-ui.add(image_list()
-    .columns(2)
-    .item_spacing(8.0)
-    .items_from_bytes(vec![
-        include_bytes!("image1.png").to_vec(),
-        include_bytes!("image2.png").to_vec(),
-    ]));
-```
-
-Key capabilities:
-- **Smart caching**: Downloaded images cached locally with correct file extensions
-- **Format detection**: Automatically detects PNG, JPEG, GIF, and WebP formats
-- **Efficient loading**: Images downloaded once and reused from cache
-- **Performance optimized**: UI repaints only when new images available
-- **Error handling**: Graceful fallback with visual indicators for failed loads
-
-### Spreadsheet Feature
-
-Enable spreadsheet components with DuckDB backend:
-
-```toml
-[dependencies]
-egui-material3 = { version = "...", features = ["spreadsheet"] }
-```
-
-The spreadsheet feature provides:
-
-- **MaterialSpreadsheet** - Full-featured spreadsheet widget with DuckDB backend
-- **Column types**: Text, Integer, Real, Boolean
-- **File formats**: Import/export CSV, Excel (xls/xlsx), Parquet formats
-- **Async loading**: Background data loading with progress indicators
-- **Data manipulation**: Full SQL query support via DuckDB
-
-```rust
-use egui_material3::{MaterialSpreadsheet, SpreadsheetDataModel, ColumnDef, ColumnType};
-
-// Create spreadsheet with column definitions
-let columns = vec![
-    ColumnDef { name: "Name".to_string(), col_type: ColumnType::Text, width: 150.0 },
-    ColumnDef { name: "Age".to_string(), col_type: ColumnType::Integer, width: 80.0 },
-    ColumnDef { name: "Score".to_string(), col_type: ColumnType::Real, width: 100.0 },
-];
-
-let mut model = SpreadsheetDataModel::new("my_table", columns)?;
-
-// Import data from CSV/Excel/Parquet
-model.import_file("data.csv", FileFormat::Csv)?;
-
-// Display in UI
-ui.add(MaterialSpreadsheet::new(&mut model));
-```
-
-## Examples
-
-The crate includes comprehensive examples demonstrating all components:
-
-```bash
-# Complete showcase of all Material components with theme switching
-cargo run --example widget_gallery_example
-
-# Real-world data table implementation with Nobel Prize data
-cargo run --example nobel_prizes_example
-
-# Interactive component gallery (recommended for exploration)
-cargo run --example stories
-
-# SVG icon demonstration (requires svg_solar feature)
-cargo run --example svg_icon_demo --features svg_solar
-```
-
-### Stories Example - Component Explorer
-
-The `stories` example provides an interactive gallery with individual showcases for each component:
-
-**Input & Selection**: actionsheet, button, checkbox, chips, iconbutton, radio, select, slider, switch
-**Navigation**: breadcrumbs, drawer, menu, tabs, toolbar, topappbar, treeview
-**Feedback**: badge, dialog, notification, progress, snackbar, tooltip
-**Data Display**: card2, datatable, list, spreadsheet, timeline
-**Media**: carousel, imagelist, layoutgrid, svgemoji, symbol
-
-Each story window demonstrates component variants, states, and common usage patterns.
-
-### Standalone Examples
-
-```bash
-# OnDemand example - demonstrates online image loading
-cd examples/ondemand && cargo run
-
-# Package example - standalone deployable app with bundled resources
-cd examples/package && cargo run
-```
-
-### Running with Features
-
-```bash
-# Run with spreadsheet support
-cargo run --example stories --features spreadsheet
-
-# Run with all SVG icon collections
-cargo run --example stories --features svg_emoji
-
-# Run with specific features
-cargo run --example stories --features "ondemand,svg_solar"
-```
-
-## Documentation
-
-- [API Documentation](https://docs.rs/egui-material3)
-- [Material Design 3 Guidelines](https://m3.material.io/)
-- [Examples](./examples/)
-
-## Contributing
-
-Contributions are welcome! Please check the [issues](https://github.com/nikescar/egui-material3/issues) for open tasks or create a new one.
+---
 
 ## License
 
 Licensed under either of:
 
-- Apache License, Version 2.0 ([LICENSE-Apache-2.0](LICENSE-Apache-2.0) or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+- Apache License, Version 2.0 ([LICENSE-Apache-2.0](LICENSE-Apache-2.0))
+- MIT license ([LICENSE-MIT](LICENSE-MIT))
 
 at your option.
 
----
-
-<details markdown>
-<summary>Development Notes</summary>
-
-## Todos
-
-* SVG sprite support
-* Bump egui_extras to match resvg version (currently using patched 0.47)
-* Additional component variants
-* Performance optimizations for large datasets
-
-</details>
+Upstream crate by [Woojae Park (@nikescar)](https://github.com/nikescar/egui-material3).
