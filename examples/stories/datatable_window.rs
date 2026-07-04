@@ -1,7 +1,7 @@
 #![doc(hidden)]
 
 use crate::datatable::{RowAction, SortDirection as DataTableSortDirection};
-use crate::{data_table, DataTableCell, DataTableTheme, MaterialButton, MaterialCheckbox};
+use crate::{data_table, list, list_item, tabs_secondary, DataTableCell, DataTableTheme, MaterialButton, MaterialCheckbox};
 use eframe::egui::{self, Color32, Id, Ui, Window};
 use std::collections::{HashMap, HashSet};
 
@@ -931,6 +931,93 @@ impl DataTableWindow {
 
         ui.add_space(10.0);
         ui.label("Note: rows without a .drawer() call show no arrow and never expand.");
+
+        ui.add_space(20.0);
+        ui.separator();
+        ui.heading("Mixed Drawer Content");
+        ui.label("Each row has different controls in its drawer");
+
+        let mixed_drawer_table = data_table()
+            .id(Id::new("mixed_drawer_table"))
+            .allow_drawer(true)
+            .column("Item", 150.0, false)
+            .column("Type", 120.0, false)
+            .row(|row| {
+                row.cell("Row 1")
+                   .cell("Compact Table")
+                   .drawer(|ui| {
+                       ui.add_space(4.0);
+                       let compact_table = data_table()
+                           .id(Id::new("drawer_compact_table"))
+                           .column("Item", 100.0, false)
+                           .column("Val", 60.0, true)
+                           .default_row_height(30.0)
+                           .row(|r| r.cell("A").cell("100"))
+                           .row(|r| r.cell("B").cell("200"))
+                           .row(|r| r.cell("C").cell("300"));
+                       ui.add(compact_table);
+                   })
+            })
+            .row(|row| {
+                row.cell("Row 2")
+                   .cell("Small Buttons")
+                   .drawer(|ui| {
+                       ui.add_space(4.0);
+                       ui.horizontal(|ui| {
+                           let _ = ui.add(MaterialButton::filled("Filled").small());
+                           let _ = ui.add(MaterialButton::outlined("Outlined").small());
+                           let _ = ui.add(MaterialButton::elevated("Elevated").small());
+                           let _ = ui.add(MaterialButton::filled_tonal("Tonal").small());
+                           let _ = ui.add(MaterialButton::text("Text").small());
+                       });
+                   })
+            })
+            .row(|row| {
+                row.cell("Row 3")
+                   .cell("Ultra-Narrow List")
+                   .drawer(|ui| {
+                       ui.add_space(4.0);
+                       use crate::{list, list_item};
+                       let ultra_list = list()
+                           .id("drawer_ultra_list")
+                           .item(list_item("Home").leading_icon("home".to_string())
+                               .min_leading_width(28.0).horizontal_title_gap(4.0)
+                               .min_vertical_padding(4.0).min_tile_height(36.0))
+                           .item(list_item("Work").leading_icon("work".to_string())
+                               .min_leading_width(28.0).horizontal_title_gap(4.0)
+                               .min_vertical_padding(4.0).min_tile_height(36.0))
+                           .item(list_item("Profile").leading_icon("person".to_string())
+                               .min_leading_width(28.0).horizontal_title_gap(4.0)
+                               .min_vertical_padding(4.0).min_tile_height(36.0));
+                       ui.add(ultra_list);
+                   })
+            })
+            .row(|row| {
+                row.cell("Row 4")
+                   .cell("Secondary Tabs")
+                   .drawer(|ui| {
+                       ui.add_space(4.0);
+                       use crate::tabs_secondary;
+                       ui.memory_mut(|mem| {
+                           if !mem.data.get_temp::<usize>(Id::new("drawer_tabs_sel")).is_some() {
+                               mem.data.insert_temp(Id::new("drawer_tabs_sel"), 0usize);
+                           }
+                       });
+                       let mut sel = ui.memory(|mem| mem.data.get_temp::<usize>(Id::new("drawer_tabs_sel")).unwrap_or(0));
+                       ui.add(tabs_secondary(&mut sel).id_salt("drawer_tabs")
+                           .tab("✈️ Travel").tab("🏨 Hotel").tab("🥾 Activities").tab("🍽️ Food"));
+                       ui.memory_mut(|mem| mem.data.insert_temp(Id::new("drawer_tabs_sel"), sel));
+                       ui.label(match sel {
+                           0 => "Travel: Flights & destinations",
+                           1 => "Hotel: Accommodation options",
+                           2 => "Activities: Things to do",
+                           3 => "Food: Local cuisine",
+                           _ => "",
+                       });
+                   })
+            });
+
+        ui.add(mixed_drawer_table);
         });
     }
 }
