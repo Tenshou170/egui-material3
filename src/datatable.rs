@@ -1761,8 +1761,8 @@ impl<'a> MaterialDataTable<'a> {
 
                             // Render drawer content with proper clipping using child_ui
                             let content_rect = Rect::from_min_size(
-                                drawer_rect.left_top() + Vec2::new(12.0, 0.0),
-                                Vec2::new(total_width - 12.0, open_drawer_height),
+                                drawer_rect.left_top() + Vec2::new(12.0, 12.0),
+                                Vec2::new(total_width - 24.0, open_drawer_height - 24.0),
                             );
 
                             // Get parent's clip rect and intersect with our content rect for proper clipping
@@ -1777,11 +1777,16 @@ impl<'a> MaterialDataTable<'a> {
                                     .id_salt(format!("drawer_{}", row_idx))
                             );
                             child_ui.set_clip_rect(clipped_rect);
+
+                            // Remove default top spacing for visual consistency
+                            let original_spacing = child_ui.spacing().clone();
+                            child_ui.style_mut().spacing.item_spacing.y = 0.0;
+
                             drawer_fn(&mut child_ui);
 
                             // Cache the actual measured height for next frame if auto-sizing
                             if drawer_row_height.is_none() {
-                                let actual_height = child_ui.min_rect().height().max(40.0);
+                                let actual_height = child_ui.min_rect().height().max(40.0) + 24.0;
                                 ui.data_mut(|data| {
                                     data.insert_temp(table_id.with(format!("drawer_height_{}", row_idx)), actual_height);
                                 });
