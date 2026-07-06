@@ -218,6 +218,8 @@ impl<'a> Widget for MaterialTextField<'a> {
         let mut resp = frame_res.inner;
         resp.rect = frame_res.response.rect;
 
+
+
         if resp.clicked() {
             resp.request_focus();
         }
@@ -430,6 +432,8 @@ impl<'a, Num: Numeric> Widget for MaterialNumberField<'a, Num> {
 
         let mut resp = frame_res.inner;
         resp.rect = frame_res.response.rect;
+
+
 
         if resp.clicked() {
             resp.request_focus();
