@@ -3,13 +3,13 @@
 
 [package]
 name = "egui-material3"
-version = "0.0.10"
+version = "0.0.11"
 edition = "2021"
 license = "MIT OR Apache-2.0"
-authors = ["Woojae Park <nikescar@gmail.com>"]
+authors = ["Tenshou Zmeyev <tenshou170@gmail.com>"]
 description = "Material Design 3 components for egui with comprehensive theming support"
-homepage = "https://github.com/nikescar/egui-material3"
-repository = "https://github.com/nikescar/egui-material3"
+homepage = "https://github.com/Tenshou170/egui-material3"
+repository = "https://github.com/Tenshou170/egui-material3"
 documentation = "https://docs.rs/egui-material3"
 readme = "README.md"
 keywords = ["egui", "material-design", "gui", "ui", "components"]
@@ -24,7 +24,7 @@ exclude = [
 [features]
 default = []
 ondemand = ["dep:ureq"]
-spreadsheet = ["dep:diesel", "dep:egui_extras", "dep:csv", "dep:calamine", "dep:futures", "dep:async-std", "dep:wasm-bindgen-futures", "dep:rusqlite"]
+spreadsheet = ["dep:diesel", "dep:egui_extras", "dep:csv", "dep:futures", "dep:async-std", "dep:wasm-bindgen-futures", "dep:rusqlite"]
 svg_solar = []
 svg_noto = []
 svg_twemoji = []
@@ -32,10 +32,8 @@ svg_emoji = ["svg_solar", "svg_noto", "svg_twemoji"]
 
 [dependencies]
 egui = "0.33"
-# egui = { git = "https://github.com/emilk/egui", default-features = false, features = ["default_fonts"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-# Note: resvg is patched to use a custom fork in .cargo/config.toml for local development
 resvg = "0.47"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 tiny-skia = "0.12"
@@ -50,19 +48,15 @@ dark-light = "2.0"
 rusqlite = { version = "0.38", default-features = false, features = ["bundled"], optional = true }
 libsqlite3-hotbundle = { version = "1.510300", optional = true, git = "https://github.com/nikescar/libsqlite3-hotbundle" }
 async-std = { version = "1.13", features = ["attributes"], optional = true } # for spreadsheet feature
-# diesel = { version = "2.3", default-features = false, features = ["sqlite"], optional = true }
 
 ureq = { version = "2.12", features = ["json"], optional = true } # for ondemand feature
 egui_extras = { version = "0.33", default-features = false, features = ["serde"], optional = true }
 csv = { version = "1.4", optional = true } # for spreadsheet feature
-calamine = { version = "0.26", optional = true } # for spreadsheet feature (xls/xlsx)
 futures = { version = "0.3", optional = true } # for spreadsheet feature (async Mutex)
-# async-std for native spreadsheet feature - moved to target-specific section below
 
 [dev-dependencies]
 eframe = { version = "0.33", features = ["default_fonts"] }
 egui_extras = { version = "0.33", default-features = false, features = ["image", "svg", "svg_text"] }
-# egui_extras = { git = "https://github.com/emilk/egui", default-features = false, features = ["image", "svg", "svg_text"] }
 
 ureq = { version = "2.12", features = ["json"] }
 egui-file-dialog = "0.12"
@@ -80,14 +74,12 @@ eframe = { version = "0.33", features = ["default_fonts", "glow", "x11", "waylan
 
 # Wasm specific dependencies
 [target.'cfg(all(target_family = "wasm", target_os = "unknown"))'.dependencies]
-# eframe = { version = "0.32.3", features = ["default_fonts", "glow", "web_screen_reader"] }
 diesel = { version = "2.3", default-features = false, features = ["sqlite", "returning_clauses_for_sqlite_3_35"], optional = true }
 sqlite-wasm-vfs = { version = "0.2.0", optional = true }
 sqlite-wasm-rs = { version = "0.5.2", optional = true }
 egui_extras = { version = "0.33", default-features = false, features = ["serde"], optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
 csv = { version = "1.4", optional = true }
-calamine = { version = "0.26", optional = true }
 futures = { version = "0.3", optional = true }
 
 [[example]]
