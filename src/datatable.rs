@@ -1779,7 +1779,7 @@ impl<'a> MaterialDataTable<'a> {
                             child_ui.set_clip_rect(clipped_rect);
 
                             // Remove default top spacing for visual consistency
-                            let original_spacing = child_ui.spacing().clone();
+                            let _original_spacing = child_ui.spacing().clone();
                             child_ui.style_mut().spacing.item_spacing.y = 0.0;
 
                             drawer_fn(&mut child_ui);
