@@ -337,9 +337,10 @@ impl<'a> MaterialSnackbar<'a> {
     }
 
     fn get_snackbar_style(&self) -> (Color32, Option<Stroke>) {
-        // Material 3 design tokens: use inverseSurface
+        // Material 3 design tokens: use inverseSurface with a subtle border
         let bg_color = get_global_color("inverseSurface");
-        (bg_color, None)
+        let border_stroke = Stroke::new(1.0, get_global_color("outlineVariant"));
+        (bg_color, Some(border_stroke))
     }
 }
 
