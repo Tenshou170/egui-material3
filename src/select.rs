@@ -610,16 +610,24 @@ impl<'a> Widget for MaterialSelect<'a> {
         };
 
         // Clip text to the space left of the arrow (arrow is at rect.max.x - 20,
-        // with 8px gap between text and arrow). Use a layout job with truncation
-        // so long option names don't bleed over the chevron.
+        // with 8px gap between text and arrow). Use Truncate wrap mode so long
+        // option names get "…" and never bleed over the chevron.
         let arrow_x = rect.max.x - 20.0;
+        // Reserve 4px gap on each side of the arrow chevron (arrow_size/2 = 3.5,
+        // so 8px total keeps text well clear of the icon).
         let text_max_w = (arrow_x - text_pos.x - 8.0).max(0.0);
-        let galley = ui.painter().layout(
+        let mut job = egui::text::LayoutJob::simple_singleline(
             display_text.to_owned(),
             select_font.clone(),
             display_color,
-            text_max_w,
         );
+        job.wrap = egui::text::TextWrapping {
+            max_width: text_max_w,
+            max_rows: 1,
+            break_anywhere: false,
+            overflow_character: Some('…'),
+        };
+        let galley = ui.painter().layout_job(job);
         ui.painter().galley(
             egui::pos2(text_pos.x, text_pos.y - galley.size().y / 2.0),
             galley,
@@ -684,8 +692,40 @@ impl<'a> Widget for MaterialSelect<'a> {
             let available_space_below = viewport_rect.max.y - rect.max.y - 4.0;
             let available_space_above = rect.min.y - viewport_rect.min.y - 4.0;
 
-            let item_height = 36.0;
             let dropdown_padding = 8.0;
+            let item_min_height = 36.0_f32;
+            let item_vertical_padding = 8.0_f32;
+
+            // Pre-compute galleys for all options so we know their true heights.
+            // This drives Area sizing and prevents clipping of wrapped text.
+            let menu_width = self.menu_width.unwrap_or(width);
+            let text_x_pad = 16.0_f32;
+            let item_text_w_scroll = (menu_width - 8.0 - 32.0).max(0.0);
+            let item_text_w_plain  = (menu_width - text_x_pad * 2.0).max(0.0);
+
+            // We don't know yet whether we'll scroll, so measure at the narrower
+            // (scroll) width — this slightly over-estimates height for the
+            // non-scroll path but is always safe. Only the height is stored.
+            let item_text_w = item_text_w_scroll.min(item_text_w_plain);
+            let prebuilt: Vec<f32> = self.options.iter().map(|opt| {
+                let galley = ui.painter().layout(
+                    opt.text.to_string(),
+                    select_font.clone(),
+                    on_surface, // color doesn't affect layout metrics
+                    item_text_w,
+                );
+                (galley.size().y + item_vertical_padding).max(item_min_height)
+            }).collect();
+
+            let total_content_h: f32 = prebuilt.iter().copied().sum::<f32>() + dropdown_padding;
+
+            // M3: show 4.5 items *worth of height* when scrolling is needed.
+            // Use the average item height so the peek cap adapts to wrapped items.
+            let avg_item_h = if prebuilt.is_empty() {
+                item_min_height
+            } else {
+                prebuilt.iter().copied().sum::<f32>() / prebuilt.len() as f32
+            };
 
             // M3: show 4.5 items when there are more than 4 — the half-visible
             // item signals scrollability without needing a scrollbar.
@@ -694,42 +734,27 @@ impl<'a> Widget for MaterialSelect<'a> {
             } else {
                 // 4.5 items visible so the next item peeks out
                 let peek_items = 4.5_f32;
-                available_space_below.max(available_space_above).min(item_height * peek_items + dropdown_padding)
+                available_space_below.max(available_space_above).min(avg_item_h * peek_items + dropdown_padding)
             };
 
-            let max_items_below =
-                ((available_space_below.min(effective_max_height) - dropdown_padding) / item_height).floor() as usize;
-            let max_items_above =
-                ((available_space_above.min(effective_max_height) - dropdown_padding) / item_height).floor() as usize;
+            // Scroll is needed when the full content is taller than the capped height.
+            let scroll_needed = total_content_h > effective_max_height;
 
-            // Determine dropdown position and size
-            let (dropdown_y, visible_items, scroll_needed) = if max_items_below
-                >= self.options.len()
-            {
-                // Fit below
-                (rect.max.y + 4.0, self.options.len(), false)
-            } else if max_items_above >= self.options.len() {
-                // Fit above
-                let dropdown_height = self.options.len() as f32 * item_height + dropdown_padding;
-                (
-                    rect.min.y - 4.0 - dropdown_height,
-                    self.options.len(),
-                    false,
-                )
-            } else if max_items_below >= max_items_above {
-                // Partial fit below with scroll
-                (rect.max.y + 4.0, max_items_below.max(3), true)
+            let dropdown_height = if scroll_needed {
+                total_content_h.min(effective_max_height)
             } else {
-                // Partial fit above with scroll
-                let visible_items = max_items_above.max(3);
-                let dropdown_height = visible_items as f32 * item_height + dropdown_padding;
-                (rect.min.y - 4.0 - dropdown_height, visible_items, true)
+                total_content_h
             };
 
-            let dropdown_height = visible_items as f32 * item_height + dropdown_padding;
+            // Decide whether to open below or above based on available space.
+            let dropdown_y = if available_space_below >= dropdown_height
+                || available_space_below >= available_space_above
+            {
+                rect.max.y + 4.0
+            } else {
+                rect.min.y - 4.0 - dropdown_height
+            };
 
-            // Use menu_width if specified, otherwise use field width
-            let menu_width = self.menu_width.unwrap_or(width);
             let menu_border_radius = self.border_radius.unwrap_or(6.0);
 
             let dropdown_pos = Pos2::new(rect.min.x, dropdown_y);
@@ -752,6 +777,11 @@ impl<'a> Widget for MaterialSelect<'a> {
                 .order(egui::Order::Tooltip)
                 .interactable(true)
                 .show(&ctx, |ui| {
+                    // Hard-constrain the Area to dropdown_size so item text
+                    // never overflows the panel border.
+                    ui.set_min_size(dropdown_size);
+                    ui.set_max_size(dropdown_size);
+
                     let dropdown_rect = Rect::from_min_size(dropdown_pos, dropdown_size);
 
                     // Draw subtle elevation shadow
@@ -774,7 +804,7 @@ impl<'a> Widget for MaterialSelect<'a> {
                     );
 
                     // Render options with scrolling support
-                    if scroll_needed && visible_items < options.len() {
+                    if scroll_needed {
                         let scroll_area_rect = Rect::from_min_size(
                             Pos2::new(dropdown_rect.min.x + 4.0, dropdown_rect.min.y + 4.0),
                             Vec2::new(menu_width - 8.0, dropdown_height - 8.0),
@@ -788,8 +818,7 @@ impl<'a> Widget for MaterialSelect<'a> {
                                 )
                                 .auto_shrink([false; 2])
                                 .show(ui, |ui| {
-                                    for option in &options {
-                                        let available_width = ui.available_width() - 32.0;
+                                    for (option, pre) in options.iter().zip(prebuilt.iter()) {
                                         let is_selected = *selected == Some(option.value);
                                         let text_color = if is_selected {
                                             on_secondary_container
@@ -797,26 +826,23 @@ impl<'a> Widget for MaterialSelect<'a> {
                                             on_surface
                                         };
 
-                                        // layout() gives a galley with origin at (0,0) —
-                                        // no halign offset compensation needed.
+                                        // Re-layout with the correct color for this item.
                                         let galley = ui.painter().layout(
                                             option.text.to_string(),
                                             select_font.clone(),
                                             text_color,
-                                            available_width,
+                                            item_text_w_scroll.max(0.0),
                                         );
 
-                                        let min_height = 36.0;
                                         let text_height = galley.size().y;
-                                        let vertical_padding = 8.0;
-                                        let option_height = (text_height + vertical_padding).max(min_height);
+                                        let option_height = *pre;
 
                                         let (option_rect, option_response) = ui.allocate_exact_size(
                                             Vec2::new(ui.available_width(), option_height),
                                             Sense::click(),
                                         );
 
-                            let option_bg_color = if is_selected {
+                                        let option_bg_color = if is_selected {
                                             secondary_container
                                         } else if option_response.hovered() {
                                             ctx.request_repaint();
@@ -852,12 +878,10 @@ impl<'a> Widget for MaterialSelect<'a> {
                         });
                     } else {
                         // Draw options without scrolling — full-width rects flush
-                        // with the dropdown panel (no 4px inset) so highlights
-                        // fill edge-to-edge inside the rounded border.
+                        // with the dropdown panel so highlights fill edge-to-edge.
                         let mut current_y = dropdown_rect.min.y + 4.0;
-                        let items_to_show = visible_items.min(options.len());
 
-                        for option in options.iter().take(items_to_show) {
+                        for (option, pre) in options.iter().zip(prebuilt.iter()) {
                             let is_selected = *selected == Some(option.value);
                             let text_color = if is_selected {
                                 on_secondary_container
@@ -865,21 +889,16 @@ impl<'a> Widget for MaterialSelect<'a> {
                                 on_surface
                             };
 
-                            let text_x_pad = 16.0;
-                            let available_width = menu_width - text_x_pad * 2.0;
-                            // Use layout() not layout_job() so the galley origin is
-                            // always (0,0) — no halign offset to compensate for.
+                            // Re-layout with the correct color for this item.
                             let galley = ui.painter().layout(
                                 option.text.to_string(),
                                 select_font.clone(),
                                 text_color,
-                                available_width,
+                                item_text_w_plain,
                             );
 
-                            let min_height = 36.0;
                             let text_height = galley.size().y;
-                            let vertical_padding = 8.0;
-                            let option_height = (text_height + vertical_padding).max(min_height);
+                            let option_height = *pre;
 
                             // Full-width rect — no inset so highlight is flush
                             let option_rect = Rect::from_min_size(
