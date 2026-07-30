@@ -163,7 +163,7 @@ impl DrawerHeader {
         let border_y = header_rect.max.y;
         ui.painter().line_segment(
             [egui::pos2(header_rect.min.x, border_y), egui::pos2(header_rect.max.x, border_y)],
-            Stroke::new(1.0, get_global_color("outlineVariant")),
+            Stroke::new(1.0_f32, get_global_color("outlineVariant")),
         );
 
         // Draw content with padding
@@ -480,7 +480,7 @@ impl<'a> MaterialDrawer<'a> {
             DrawerVariant::Permanent => {
                 // Permanent drawer: surface with subtle border
                 let border_color = get_global_color("outlineVariant");
-                (background_color, Some(Stroke::new(1.0, border_color)), elevation)
+                (background_color, Some(Stroke::new(1.0_f32, border_color)), elevation)
             }
             DrawerVariant::Modal => {
                 // Modal drawer: elevated surface, no border
@@ -489,7 +489,7 @@ impl<'a> MaterialDrawer<'a> {
             DrawerVariant::Dismissible => {
                 // Dismissible drawer: surface with subtle border
                 let border_color = get_global_color("outlineVariant");
-                (background_color, Some(Stroke::new(1.0, border_color)), elevation)
+                (background_color, Some(Stroke::new(1.0_f32, border_color)), elevation)
             }
         }
     }
@@ -682,7 +682,7 @@ impl<'a> MaterialDrawer<'a> {
                             egui::pos2(drawer_rect.min.x + 28.0, divider_y),
                             egui::pos2(drawer_rect.max.x - 28.0, divider_y),
                         ],
-                        Stroke::new(1.0, get_global_color("outlineVariant")),
+                        Stroke::new(1.0_f32, get_global_color("outlineVariant")),
                     );
                     current_y += 8.0;
                 }

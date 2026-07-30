@@ -448,7 +448,7 @@ impl<'a> Widget for MaterialIconButton<'a> {
             ui.painter().rect_stroke(
                 rect,
                 corner_radius,
-                Stroke::new(1.0, border_color),
+                Stroke::new(1.0_f32, border_color),
                 egui::epaint::StrokeKind::Outside,
             );
         }

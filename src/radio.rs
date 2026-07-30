@@ -266,7 +266,7 @@ impl<'a, T: PartialEq + Clone> Widget for MaterialRadio<'a, T> {
         ui.painter().circle_stroke(
             radio_rect.center(),
             radio_size / 2.0,
-            Stroke::new(2.0, border_color),
+            Stroke::new(2.0_f32, border_color),
         );
 
         // Draw selected inner circle
@@ -637,7 +637,7 @@ impl<'a, T: PartialEq + Clone> Widget for RadioListTile<'a, T> {
         ui.painter().circle_stroke(
             radio_center,
             radio_size / 2.0,
-            Stroke::new(2.0, border_color),
+            Stroke::new(2.0_f32, border_color),
         );
         
         // Draw selected inner circle

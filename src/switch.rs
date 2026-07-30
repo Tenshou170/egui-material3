@@ -300,7 +300,7 @@ impl<'a> Widget for MaterialSwitch<'a> {
             ui.painter().rect_stroke(
                 track_rect,
                 track_height / 2.0,
-                Stroke::new(2.0, track_outline_color),
+                Stroke::new(2.0_f32, track_outline_color),
                 StrokeKind::Outside,
             );
         }

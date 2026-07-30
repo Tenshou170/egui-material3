@@ -275,9 +275,9 @@ impl<'a> Widget for MaterialCheckbox<'a> {
             );
 
             ui.painter()
-                .line_segment([start, middle], Stroke::new(2.0, check_color));
+                .line_segment([start, middle], Stroke::new(2.0_f32, check_color));
             ui.painter()
-                .line_segment([middle, end], Stroke::new(2.0, check_color));
+                .line_segment([middle, end], Stroke::new(2.0_f32, check_color));
         } else if self.indeterminate {
             // Draw indeterminate mark (horizontal line)
             let center = checkbox_rect.center();
@@ -286,7 +286,7 @@ impl<'a> Widget for MaterialCheckbox<'a> {
             let end = Pos2::new(center.x + line_width / 2.0, center.y);
 
             ui.painter()
-                .line_segment([start, end], Stroke::new(2.0, check_color));
+                .line_segment([start, end], Stroke::new(2.0_f32, check_color));
         }
 
         // Draw label text

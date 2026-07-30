@@ -120,7 +120,7 @@ impl<'a> Widget for MaterialTextField<'a> {
                     bg_fill = surface_container_highest;
                 }
                 TextFieldVariant::Outlined => {
-                    stroke = Stroke::new(1.0, if is_focused { primary } else { outline });
+                    stroke = Stroke::new(1.0_f32, if is_focused { primary } else { outline });
                 }
             }
         } else {
@@ -129,7 +129,7 @@ impl<'a> Widget for MaterialTextField<'a> {
                     bg_fill = on_surface.linear_multiply(0.04);
                 }
                 TextFieldVariant::Outlined => {
-                    stroke = Stroke::new(1.0, on_surface.linear_multiply(0.12));
+                    stroke = Stroke::new(1.0_f32, on_surface.linear_multiply(0.12));
                 }
             }
         }
@@ -331,7 +331,7 @@ impl<'a, Num: Numeric> Widget for MaterialNumberField<'a, Num> {
                     bg_fill = surface_container_highest;
                 }
                 TextFieldVariant::Outlined => {
-                    stroke = Stroke::new(1.0, if is_focused { primary } else { outline });
+                    stroke = Stroke::new(1.0_f32, if is_focused { primary } else { outline });
                 }
             }
         } else {
@@ -340,7 +340,7 @@ impl<'a, Num: Numeric> Widget for MaterialNumberField<'a, Num> {
                     bg_fill = on_surface.linear_multiply(0.04);
                 }
                 TextFieldVariant::Outlined => {
-                    stroke = Stroke::new(1.0, on_surface.linear_multiply(0.12));
+                    stroke = Stroke::new(1.0_f32, on_surface.linear_multiply(0.12));
                 }
             }
         }

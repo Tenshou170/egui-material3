@@ -245,7 +245,7 @@ impl<'a> MaterialCard2<'a> {
             }
             Card2Variant::Outlined => {
                 // Outlined card: surface with outline and 0.0 elevation
-                let stroke = Some(Stroke::new(1.0, md_outline_variant));
+                let stroke = Some(Stroke::new(1.0_f32, md_outline_variant));
                 let default_elevation = self.elevation.unwrap_or(0.0);
                 (md_surface, stroke, default_elevation)
             }

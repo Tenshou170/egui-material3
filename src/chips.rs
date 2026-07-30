@@ -438,11 +438,11 @@ impl<'a> Widget for MaterialChip<'a> {
 
         let has_leading = self.leading_icon.is_some()
             || (self.variant == ChipVariant::Filter && is_selected);
-        let height = if self.is_small { 24.0 } else { 32.0 };
-        let icon_size = if self.is_small { 18.0 } else { 24.0 };
-        let icon_width = if has_leading { icon_size } else { 0.0 };
-        let remove_width = if self.removable { icon_size } else { 0.0 };
-        let padding = if self.is_small { 12.0 } else { 16.0 };
+        let height = if self.is_small { 24.0_f32 } else { 32.0_f32 };
+        let icon_size = if self.is_small { 18.0_f32 } else { 24.0_f32 };
+        let icon_width = if has_leading { icon_size } else { 0.0_f32 };
+        let remove_width = if self.removable { icon_size } else { 0.0_f32 };
+        let padding = if self.is_small { 12.0_f32 } else { 16.0_f32 };
 
         let desired_size = Vec2::new(
             (text_width + icon_width + remove_width + padding).min(ui.available_width()),
@@ -490,7 +490,7 @@ impl<'a> Widget for MaterialChip<'a> {
             ui.painter().rect_stroke(
                 rect,
                 corner_radius,
-                Stroke::new(1.0, colors.border),
+                Stroke::new(1.0_f32, colors.border),
                 egui::epaint::StrokeKind::Outside,
             );
         }
@@ -508,7 +508,7 @@ impl<'a> Widget for MaterialChip<'a> {
 
             match icon {
                 IconType::MaterialIcon(icon_str) => {
-                    let font_size = if self.is_small { 14.0 } else { 16.0 };
+                    let font_size = if self.is_small { 14.0_f32 } else { 16.0_f32 };
                     ui.painter().text(
                         icon_rect.center(),
                         egui::Align2::CENTER_CENTER,
@@ -564,7 +564,7 @@ impl<'a> Widget for MaterialChip<'a> {
             );
 
             let center = icon_rect.center();
-            let checkmark_size = if self.is_small { 10.0 } else { 12.0 };
+            let checkmark_size = if self.is_small { 10.0_f32 } else { 12.0_f32 };
 
             let start = Pos2::new(center.x - checkmark_size * 0.3, center.y);
             let middle = Pos2::new(
@@ -576,7 +576,7 @@ impl<'a> Widget for MaterialChip<'a> {
                 center.y - checkmark_size * 0.2,
             );
 
-            let stroke_width = if self.is_small { 1.5 } else { 2.0 };
+            let stroke_width = if self.is_small { 1.5_f32 } else { 2.0_f32 };
             ui.painter()
                 .line_segment([start, middle], Stroke::new(stroke_width, colors.icon));
             ui.painter()
@@ -603,8 +603,8 @@ impl<'a> Widget for MaterialChip<'a> {
             );
 
             let center = remove_rect.center();
-            let cross_size = if self.is_small { 6.0 } else { 8.0 };
-            let stroke_width = if self.is_small { 1.2 } else { 1.5 };
+            let cross_size = if self.is_small { 6.0_f32 } else { 8.0_f32 };
+            let stroke_width = if self.is_small { 1.2_f32 } else { 1.5_f32 };
             ui.painter().line_segment(
                 [
                     Pos2::new(center.x - cross_size / 2.0, center.y - cross_size / 2.0),

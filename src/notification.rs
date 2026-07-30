@@ -311,7 +311,7 @@ impl MaterialNotification {
                 ui.painter().rect_stroke(
                     notification_rect,
                     12.0,
-                    Stroke::new(1.0, outline),
+                    Stroke::new(1.0_f32, outline),
                     egui::epaint::StrokeKind::Outside,
                 );
 

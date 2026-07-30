@@ -530,7 +530,7 @@ impl Widget for MaterialImageList<'_> {
                 // Draw placeholder image (rectangle with border)
                 let image_rect = item_rect.shrink(2.0);
                 let image_bg = get_global_color("surfaceVariant");
-                let image_border = Stroke::new(1.0, get_global_color("outline"));
+                let image_border = Stroke::new(1.0_f32, get_global_color("outline"));
 
                 ui.painter()
                     .rect_filled(image_rect, corner_radius, image_bg);
@@ -595,14 +595,14 @@ impl Widget for MaterialImageList<'_> {
                     let line_color = get_global_color("error");
                     ui.painter().line_segment(
                         [image_rect.min, image_rect.max],
-                        Stroke::new(2.0, line_color),
+                        Stroke::new(2.0_f32, line_color),
                     );
                     ui.painter().line_segment(
                         [
                             egui::pos2(image_rect.min.x, image_rect.max.y),
                             egui::pos2(image_rect.max.x, image_rect.min.y),
                         ],
-                        Stroke::new(2.0, line_color),
+                        Stroke::new(2.0_f32, line_color),
                     );
                 }
 

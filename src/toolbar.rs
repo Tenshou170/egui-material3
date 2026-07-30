@@ -367,7 +367,7 @@ impl<'a> Widget for MaterialToolbar<'a> {
                         egui::pos2(rect.min.x, border_y),
                         egui::pos2(rect.max.x, border_y),
                     ],
-                    Stroke::new(1.0, border_color),
+                    Stroke::new(1.0_f32, border_color),
                 );
             }
 

@@ -548,7 +548,7 @@ impl Widget for MaterialButton<'_> {
             ),
             MaterialButtonVariant::Outlined => (
                 Some(Color32::TRANSPARENT),
-                Some(Stroke::new(1.0, outline)),
+                Some(Stroke::new(1.0_f32, outline)),
                 CornerRadius::from(get_global_corner_radius().map(|r| r as u8).unwrap_or(20)),
                 false,
             ),

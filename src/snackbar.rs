@@ -339,7 +339,7 @@ impl<'a> MaterialSnackbar<'a> {
     fn get_snackbar_style(&self) -> (Color32, Option<Stroke>) {
         // Material 3 design tokens: use inverseSurface with a subtle border
         let bg_color = get_global_color("inverseSurface");
-        let border_stroke = Stroke::new(1.0, get_global_color("outlineVariant"));
+        let border_stroke = Stroke::new(1.0_f32, get_global_color("outlineVariant"));
         (bg_color, Some(border_stroke))
     }
 }
@@ -1030,14 +1030,14 @@ impl Widget for MaterialSnackbarWithOffset<'_> {
                     egui::pos2(center.x - icon_size / 2.0, center.y - icon_size / 2.0),
                     egui::pos2(center.x + icon_size / 2.0, center.y + icon_size / 2.0),
                 ],
-                Stroke::new(2.0, close_icon_color),
+                Stroke::new(2.0_f32, close_icon_color),
             );
             ui.painter().line_segment(
                 [
                     egui::pos2(center.x + icon_size / 2.0, center.y - icon_size / 2.0),
                     egui::pos2(center.x - icon_size / 2.0, center.y + icon_size / 2.0),
                 ],
-                Stroke::new(2.0, close_icon_color),
+                Stroke::new(2.0_f32, close_icon_color),
             );
 
             if close_response.clicked() {

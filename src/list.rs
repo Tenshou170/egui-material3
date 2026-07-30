@@ -770,7 +770,7 @@ impl<'a> Widget for MaterialList<'a> {
         ui.painter().rect_stroke(
             rect,
             8.0,
-            Stroke::new(1.0, outline_variant),
+            Stroke::new(1.0_f32, outline_variant),
             egui::epaint::StrokeKind::Outside,
         );
 
@@ -1058,7 +1058,7 @@ impl<'a> Widget for MaterialList<'a> {
                 // Divider: use outlineVariant (less emphasized outline for structure)
                 ui.painter().line_segment(
                     [divider_start, divider_end],
-                    Stroke::new(1.0, outline_variant),
+                    Stroke::new(1.0_f32, outline_variant),
                 );
                 current_y += 1.0;
             }

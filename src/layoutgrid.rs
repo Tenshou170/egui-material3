@@ -234,7 +234,7 @@ impl Widget for MaterialLayoutGrid<'_> {
             ui.painter().rect_stroke(
                 grid_rect,
                 CornerRadius::from(4.0),
-                egui::epaint::Stroke::new(1.0, outline_color),
+                egui::epaint::Stroke::new(1.0_f32, outline_color),
                 egui::epaint::StrokeKind::Outside,
             );
 
@@ -244,7 +244,7 @@ impl Widget for MaterialLayoutGrid<'_> {
                 if i > 0 && i < columns {
                     ui.painter().line_segment(
                         [egui::pos2(x, start_pos.y + margin), egui::pos2(x, max_y)],
-                        egui::epaint::Stroke::new(0.5, get_global_color("outlineVariant")),
+                        egui::epaint::Stroke::new(0.5_f32, get_global_color("outlineVariant")),
                     );
                 }
             }

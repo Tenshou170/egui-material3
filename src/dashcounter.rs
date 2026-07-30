@@ -397,7 +397,7 @@ impl<'a> egui::Widget for MaterialDashCounter<'a> {
             painter.rect_stroke(
                 card_rect,
                 rounding,
-                egui::Stroke::new(1.0, outline),
+                egui::Stroke::new(1.0_f32, outline),
                 egui::epaint::StrokeKind::Outside,
             );
 

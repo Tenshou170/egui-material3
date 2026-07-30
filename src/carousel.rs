@@ -273,7 +273,7 @@ impl<'a> egui::Widget for MaterialCarousel<'a> {
             painter.rect_stroke(
                 clipped_rect,
                 rounding,
-                egui::Stroke::new(1.0, outline_color),
+                egui::Stroke::new(1.0_f32, outline_color),
                 egui::epaint::StrokeKind::Outside,
             );
 

@@ -435,7 +435,7 @@ impl<'a> Widget for MaterialSelect<'a> {
         // Default to filling the available column width so the dropdown is
         // consistent regardless of which tab it appears in.
         let width = self.width.unwrap_or_else(|| ui.available_width());
-        let height = if self.small { 28.0 } else { 44.0 };
+        let height = if self.small { 28.0_f32 } else { 44.0_f32 };
         let desired_size = Vec2::new(width, height);
 
         let (rect, mut response) = ui.allocate_exact_size(desired_size, Sense::click());
@@ -530,7 +530,7 @@ impl<'a> Widget for MaterialSelect<'a> {
                             Pos2::new(rect.min.x, rect.max.y),
                             Pos2::new(rect.max.x, rect.max.y),
                         ],
-                        Stroke::new(1.0, border_color),
+                        Stroke::new(1.0_f32, border_color),
                     );
                 } else {
                     ui.painter().line_segment(
@@ -538,7 +538,7 @@ impl<'a> Widget for MaterialSelect<'a> {
                             Pos2::new(rect.min.x, rect.max.y),
                             Pos2::new(rect.max.x, rect.max.y),
                         ],
-                        Stroke::new(if open || response.hovered() { 2.0 } else { 1.0 }, border_color),
+                        Stroke::new(if open || response.hovered() { 2.0_f32 } else { 1.0_f32 }, border_color),
                     );
                 }
             }
@@ -547,7 +547,7 @@ impl<'a> Widget for MaterialSelect<'a> {
                 ui.painter().rect_stroke(
                     rect,
                     4.0,
-                    Stroke::new(if open || response.hovered() { 2.0 } else { 1.0 }, border_color),
+                    Stroke::new(if open || response.hovered() { 2.0_f32 } else { 1.0_f32 }, border_color),
                     egui::epaint::StrokeKind::Outside,
                 );
             }
@@ -557,9 +557,9 @@ impl<'a> Widget for MaterialSelect<'a> {
         if should_show_label {
             let label_text = self.label.as_ref().unwrap();
             let label_font = if should_float_label {
-                FontId::new(if self.small { 9.0 } else { 11.0 }, FontFamily::Proportional)
+                FontId::new(if self.small { 9.0_f32 } else { 11.0_f32 }, FontFamily::Proportional)
             } else {
-                FontId::new(if self.small { 13.0 } else { 15.0 }, FontFamily::Proportional)
+                FontId::new(if self.small { 13.0_f32 } else { 15.0_f32 }, FontFamily::Proportional)
             };
             
             let label_color = if !self.enabled {
@@ -573,7 +573,7 @@ impl<'a> Widget for MaterialSelect<'a> {
             };
             
             let label_pos = if should_float_label {
-                Pos2::new(rect.min.x + 12.0, rect.min.y + if self.small { 2.0 } else { 5.0 })
+                Pos2::new(rect.min.x + 12.0, rect.min.y + if self.small { 2.0_f32 } else { 5.0_f32 })
             } else {
                 Pos2::new(rect.min.x + 12.0, rect.center().y)
             };
@@ -599,8 +599,8 @@ impl<'a> Widget for MaterialSelect<'a> {
         };
 
         // Use consistent font styling for select field
-        let select_font = FontId::new(if self.small { 13.0 } else { 15.0 }, FontFamily::Proportional);
-        let text_y_offset = if should_show_label && should_float_label { if self.small { 6.0 } else { 9.0 } } else { 0.0 };
+        let select_font = FontId::new(if self.small { 13.0_f32 } else { 15.0_f32 }, FontFamily::Proportional);
+        let text_y_offset = if should_show_label && should_float_label { if self.small { 6.0_f32 } else { 9.0_f32 } } else { 0.0 };
         let text_pos = Pos2::new(rect.min.x + 12.0, rect.center().y + text_y_offset);
 
         let display_color = if self.selected.is_none() {
@@ -648,7 +648,7 @@ impl<'a> Widget for MaterialSelect<'a> {
                     ),
                     Pos2::new(arrow_center.x, arrow_center.y - arrow_size / 4.0),
                 ],
-                Stroke::new(2.0, text_color),
+                Stroke::new(2.0_f32, text_color),
             );
             ui.painter().line_segment(
                 [
@@ -658,7 +658,7 @@ impl<'a> Widget for MaterialSelect<'a> {
                         arrow_center.y + arrow_size / 4.0,
                     ),
                 ],
-                Stroke::new(2.0, text_color),
+                Stroke::new(2.0_f32, text_color),
             );
         } else {
             // Down arrow
@@ -670,7 +670,7 @@ impl<'a> Widget for MaterialSelect<'a> {
                     ),
                     Pos2::new(arrow_center.x, arrow_center.y + arrow_size / 4.0),
                 ],
-                Stroke::new(2.0, text_color),
+                Stroke::new(2.0_f32, text_color),
             );
             ui.painter().line_segment(
                 [
@@ -680,7 +680,7 @@ impl<'a> Widget for MaterialSelect<'a> {
                         arrow_center.y - arrow_size / 4.0,
                     ),
                 ],
-                Stroke::new(2.0, text_color),
+                Stroke::new(2.0_f32, text_color),
             );
         }
 
@@ -799,7 +799,7 @@ impl<'a> Widget for MaterialSelect<'a> {
                     ui.painter().rect_stroke(
                         dropdown_rect,
                         menu_border_radius,
-                        Stroke::new(1.0, outline),
+                        Stroke::new(1.0_f32, outline),
                         egui::epaint::StrokeKind::Outside,
                     );
 

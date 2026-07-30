@@ -657,7 +657,7 @@ impl<'a> MaterialDataTable<'a> {
     fn get_table_style(&self) -> (Color32, Stroke) {
         let md_surface = self.theme.decoration.unwrap_or_else(|| get_global_color("surface"));
         let md_outline = get_global_color("outline");
-        let border_stroke = self.theme.border_stroke.unwrap_or_else(|| Stroke::new(1.0, md_outline));
+        let border_stroke = self.theme.border_stroke.unwrap_or_else(|| Stroke::new(1.0_f32, md_outline));
         (md_surface, border_stroke)
     }
 
@@ -1048,7 +1048,7 @@ impl<'a> MaterialDataTable<'a> {
                 ui.painter().rect_stroke(
                     checkbox_inner_rect,
                     CornerRadius::from(2.0),
-                    Stroke::new(2.0, get_global_color("outline")),
+                    Stroke::new(2.0_f32, get_global_color("outline")),
                     egui::epaint::StrokeKind::Outside,
                 );
 
@@ -1061,11 +1061,11 @@ impl<'a> MaterialDataTable<'a> {
                     ];
                     ui.painter().line_segment(
                         [check_points[0], check_points[1]],
-                        Stroke::new(2.0, Color32::WHITE),
+                        Stroke::new(2.0_f32, Color32::WHITE),
                     );
                     ui.painter().line_segment(
                         [check_points[1], check_points[2]],
-                        Stroke::new(2.0, Color32::WHITE),
+                        Stroke::new(2.0_f32, Color32::WHITE),
                     );
                 }
 
@@ -1197,15 +1197,15 @@ impl<'a> MaterialDataTable<'a> {
                             ];
                             ui.painter().line_segment(
                                 [points[0], points[1]],
-                                Stroke::new(2.0, arrow_color),
+                                Stroke::new(2.0_f32, arrow_color),
                             );
                             ui.painter().line_segment(
                                 [points[1], points[2]],
-                                Stroke::new(2.0, arrow_color),
+                                Stroke::new(2.0_f32, arrow_color),
                             );
                             ui.painter().line_segment(
                                 [points[2], points[0]],
-                                Stroke::new(2.0, arrow_color),
+                                Stroke::new(2.0_f32, arrow_color),
                             );
                         }
                         Some(SortDirection::Descending) => {
@@ -1217,15 +1217,15 @@ impl<'a> MaterialDataTable<'a> {
                             ];
                             ui.painter().line_segment(
                                 [points[0], points[1]],
-                                Stroke::new(2.0, arrow_color),
+                                Stroke::new(2.0_f32, arrow_color),
                             );
                             ui.painter().line_segment(
                                 [points[1], points[2]],
-                                Stroke::new(2.0, arrow_color),
+                                Stroke::new(2.0_f32, arrow_color),
                             );
                             ui.painter().line_segment(
                                 [points[2], points[0]],
-                                Stroke::new(2.0, arrow_color),
+                                Stroke::new(2.0_f32, arrow_color),
                             );
                         }
                         None => {
@@ -1239,15 +1239,15 @@ impl<'a> MaterialDataTable<'a> {
                             ];
                             ui.painter().line_segment(
                                 [up_points[0], up_points[1]],
-                                Stroke::new(1.0, light_color),
+                                Stroke::new(1.0_f32, light_color),
                             );
                             ui.painter().line_segment(
                                 [up_points[1], up_points[2]],
-                                Stroke::new(1.0, light_color),
+                                Stroke::new(1.0_f32, light_color),
                             );
                             ui.painter().line_segment(
                                 [up_points[2], up_points[0]],
-                                Stroke::new(1.0, light_color),
+                                Stroke::new(1.0_f32, light_color),
                             );
 
                             // Down triangle
@@ -1258,15 +1258,15 @@ impl<'a> MaterialDataTable<'a> {
                             ];
                             ui.painter().line_segment(
                                 [down_points[0], down_points[1]],
-                                Stroke::new(1.0, light_color),
+                                Stroke::new(1.0_f32, light_color),
                             );
                             ui.painter().line_segment(
                                 [down_points[1], down_points[2]],
-                                Stroke::new(1.0, light_color),
+                                Stroke::new(1.0_f32, light_color),
                             );
                             ui.painter().line_segment(
                                 [down_points[2], down_points[0]],
-                                Stroke::new(1.0, light_color),
+                                Stroke::new(1.0_f32, light_color),
                             );
                         }
                     }
@@ -1361,7 +1361,7 @@ impl<'a> MaterialDataTable<'a> {
                     ui.painter().rect_stroke(
                         checkbox_inner_rect,
                         CornerRadius::from(2.0),
-                        Stroke::new(2.0, border_color),
+                        Stroke::new(2.0_f32, border_color),
                         egui::epaint::StrokeKind::Outside,
                     );
 
@@ -1374,11 +1374,11 @@ impl<'a> MaterialDataTable<'a> {
                         ];
                         ui.painter().line_segment(
                             [check_points[0], check_points[1]],
-                            Stroke::new(2.0, Color32::WHITE),
+                            Stroke::new(2.0_f32, Color32::WHITE),
                         );
                         ui.painter().line_segment(
                             [check_points[1], check_points[2]],
-                            Stroke::new(2.0, Color32::WHITE),
+                            Stroke::new(2.0_f32, Color32::WHITE),
                         );
                     }
 
@@ -1437,11 +1437,11 @@ impl<'a> MaterialDataTable<'a> {
                             ];
                             ui.painter().line_segment(
                                 [pts[0], pts[1]],
-                                Stroke::new(2.0, arrow_color),
+                                Stroke::new(2.0_f32, arrow_color),
                             );
                             ui.painter().line_segment(
                                 [pts[1], pts[2]],
-                                Stroke::new(2.0, arrow_color),
+                                Stroke::new(2.0_f32, arrow_color),
                             );
                         } else {
                             // Right chevron: >
@@ -1452,11 +1452,11 @@ impl<'a> MaterialDataTable<'a> {
                             ];
                             ui.painter().line_segment(
                                 [pts[0], pts[1]],
-                                Stroke::new(2.0, arrow_color),
+                                Stroke::new(2.0_f32, arrow_color),
                             );
                             ui.painter().line_segment(
                                 [pts[1], pts[2]],
-                                Stroke::new(2.0, arrow_color),
+                                Stroke::new(2.0_f32, arrow_color),
                             );
                         }
 
@@ -1647,14 +1647,14 @@ impl<'a> MaterialDataTable<'a> {
                                                 icon_rect.left_top() + Vec2::new(4.0, 10.0),
                                                 icon_rect.left_top() + Vec2::new(10.0, 4.0),
                                             ],
-                                            Stroke::new(1.5, icon_color),
+                                            Stroke::new(1.5_f32, icon_color),
                                         );
                                         ui.painter().line_segment(
                                             [
                                                 icon_rect.left_top() + Vec2::new(2.0, 12.0),
                                                 icon_rect.left_top() + Vec2::new(4.0, 10.0),
                                             ],
-                                            Stroke::new(1.5, icon_color),
+                                            Stroke::new(1.5_f32, icon_color),
                                         );
                                     }
                                 }

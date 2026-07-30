@@ -129,7 +129,7 @@ impl MaterialTooltip {
                 ui.painter().rect_stroke(
                     rect,
                     4.0,
-                    Stroke::new(1.0, inverse_on_surface.linear_multiply(0.2)),
+                    Stroke::new(1.0_f32, inverse_on_surface.linear_multiply(0.2)),
                     egui::epaint::StrokeKind::Outside,
                 );
 

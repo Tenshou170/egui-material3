@@ -119,7 +119,7 @@ impl<'a> MaterialNavigationRail<'a> {
         );
         ui.painter().line_segment(
             [rail_rect.right_top(), rail_rect.right_bottom()],
-            egui::Stroke::new(1.0, divider_color),
+            egui::Stroke::new(1.0_f32, divider_color),
         );
 
         let icon_font  = FontId::proportional(Self::ICON_SIZE);

@@ -363,7 +363,7 @@ impl<'a> MaterialActionSheet<'a> {
                         pos2(sheet_rect.min.x, divider_y),
                         pos2(sheet_rect.max.x, divider_y),
                     ],
-                    Stroke::new(1.0, get_global_color("outlineVariant")),
+                    Stroke::new(1.0_f32, get_global_color("outlineVariant")),
                 );
             }
         }
