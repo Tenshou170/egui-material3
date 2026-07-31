@@ -1009,11 +1009,18 @@ impl MaterialThemeContext {
                 (ThemeMode::Dark, ContrastLevel::Medium) => "dark-medium-contrast",
                 (ThemeMode::Dark, ContrastLevel::High) => "dark-high-contrast",
                 (ThemeMode::Auto, contrast) => {
-                    // For auto mode, we'll default to light for now
-                    match contrast {
-                        ContrastLevel::Normal => "light",
-                        ContrastLevel::Medium => "light-medium-contrast",
-                        ContrastLevel::High => "light-high-contrast",
+                    // Resolve Auto to the OS-detected mode so get_current_scheme()
+                    // returns colours consistent with what apply_theme() would render.
+                    let resolved = detect_os_theme();
+                    match (resolved, contrast) {
+                        (ThemeMode::Dark, ContrastLevel::Normal) => "dark",
+                        (ThemeMode::Dark, ContrastLevel::Medium) => "dark-medium-contrast",
+                        (ThemeMode::Dark, ContrastLevel::High) => "dark-high-contrast",
+                        _ => match contrast {
+                            ContrastLevel::Normal => "light",
+                            ContrastLevel::Medium => "light-medium-contrast",
+                            ContrastLevel::High => "light-high-contrast",
+                        },
                     }
                 }
             };
@@ -1719,7 +1726,16 @@ where
     visuals.window_stroke.width = 1.0;
 
     // === Window shadow ===
-    visuals.window_shadow = egui::Shadow::NONE;
+    // window_shadow applies to egui Windows — kept for dialogs and panels.
+    // popup_shadow applies to Areas with Order::Foreground (tooltips, dropdowns,
+    // snackbars) — zeroed here because floating widgets like MaterialSnackbar
+    // draw their own shadow internally; a second egui shadow causes doubling.
+    visuals.window_shadow = egui::Shadow {
+        offset: [0, 2],
+        blur: 8,
+        spread: 0,
+        color: egui::Color32::from_black_alpha(40),
+    };
     visuals.popup_shadow = egui::Shadow::NONE;
 
     // Apply global corner radius if set

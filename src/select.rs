@@ -482,7 +482,7 @@ impl<'a> Widget for MaterialSelect<'a> {
         // Material Design colors
         let primary_color = get_global_color("primary");
         let surface = get_global_color("surface");
-        let surface_variant = get_global_color("surfaceVariant");
+        let surface_container_highest = get_global_color("surfaceContainerHighest"); // MD3 filled select bg
         let on_surface = get_global_color("onSurface");
         let on_surface_variant = get_global_color("onSurfaceVariant");
         let outline = get_global_color("outline");
@@ -498,23 +498,23 @@ impl<'a> Widget for MaterialSelect<'a> {
         // Determine colors based on state
         let (bg_color, border_color, text_color) = if !self.enabled {
             (
-                surface_variant.linear_multiply(0.38),
+                surface_container_highest.linear_multiply(0.38),
                 outline.linear_multiply(0.38),
                 on_surface.linear_multiply(0.38),
             )
         } else if self.error_text.is_some() {
             match self.variant {
-                SelectVariant::Filled => (surface_variant, error_color, on_surface),
+                SelectVariant::Filled => (surface_container_highest, error_color, on_surface),
                 SelectVariant::Outlined => (surface, error_color, on_surface),
             }
         } else if response.hovered() || open {
             match self.variant {
-                SelectVariant::Filled => (surface_variant, primary_color, on_surface),
+                SelectVariant::Filled => (surface_container_highest, primary_color, on_surface),
                 SelectVariant::Outlined => (surface, primary_color, on_surface),
             }
         } else {
             match self.variant {
-                SelectVariant::Filled => (surface_variant, outline, on_surface_variant),
+                SelectVariant::Filled => (surface_container_highest, outline, on_surface_variant),
                 SelectVariant::Outlined => (surface, outline, on_surface_variant),
             }
         };
@@ -846,7 +846,7 @@ impl<'a> Widget for MaterialSelect<'a> {
                                             secondary_container
                                         } else if option_response.hovered() {
                                             ctx.request_repaint();
-                                            on_surface.linear_multiply(20.0 / 255.0)
+                                            Color32::from_rgba_unmultiplied(on_surface.r(), on_surface.g(), on_surface.b(), 20)
                                         } else {
                                             Color32::TRANSPARENT
                                         };
@@ -916,7 +916,7 @@ impl<'a> Widget for MaterialSelect<'a> {
                                 secondary_container
                             } else if option_response.hovered() {
                                 ctx.request_repaint();
-                                on_surface.linear_multiply(20.0 / 255.0)
+                                Color32::from_rgba_unmultiplied(on_surface.r(), on_surface.g(), on_surface.b(), 20)
                             } else {
                                 Color32::TRANSPARENT
                             };

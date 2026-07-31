@@ -174,9 +174,8 @@ impl<'a> MaterialNavigationRail<'a> {
             // ── Icon ──────────────────────────────────────────────────────
             let icon_color = if is_selected {
                 on_secondary_c
-            } else if is_hovered {
-                primary
             } else {
+                // Hover and default both use onSurfaceVariant — only the state layer changes (MD3)
                 on_surface_v
             };
             ui.painter().text(

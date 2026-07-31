@@ -253,20 +253,20 @@ impl MaterialBadge {
                 (bg, text)
             }
             BadgeColor::Error => (
-                Color32::from_rgb(239, 68, 68), // red-500
-                Color32::WHITE,
+                get_global_color("error"),
+                get_global_color("onError"),
             ),
             BadgeColor::Success => (
-                Color32::from_rgb(34, 197, 94), // green-500
-                Color32::WHITE,
+                get_global_color("tertiary"),
+                get_global_color("onTertiary"),
             ),
             BadgeColor::Warning => (
-                Color32::from_rgb(234, 179, 8), // yellow-500
-                Color32::WHITE,
+                get_global_color("tertiaryContainer"),
+                get_global_color("onTertiaryContainer"),
             ),
             BadgeColor::Neutral => (
-                Color32::from_rgb(107, 114, 128), // gray-500
-                Color32::WHITE,
+                get_global_color("surfaceVariant"),
+                get_global_color("onSurfaceVariant"),
             ),
             BadgeColor::Custom(bg, text) => (bg, text),
         }

@@ -441,18 +441,8 @@ impl<'a> Widget for MaterialTabs<'a> {
                 );
                 match self.variant {
                     TabVariant::Primary => {
-                        let galley = ui.painter().layout_no_wrap(
-                            tab.label.clone(),
-                            label_font.clone(),
-                            text_color,
-                        );
-                        let label_width = galley.size().x + 16.0;
-                        let hover_x = tab_rect.center().x - label_width / 2.0;
-                        let hover_rect = Rect::from_min_max(
-                            Pos2::new(hover_x, tab_rect.min.y + 4.0),
-                            Pos2::new(hover_x + label_width, tab_rect.max.y - 4.0),
-                        );
-                        ui.painter().rect_filled(hover_rect, CornerRadius::same(8), hover_color);
+                        // MD3: state layer covers full tab width
+                        ui.painter().rect_filled(tab_rect, 0.0, hover_color);
                     }
                     TabVariant::Secondary => {
                         ui.painter().rect_filled(tab_rect, 0.0, hover_color);
@@ -507,18 +497,10 @@ impl<'a> Widget for MaterialTabs<'a> {
             if is_selected && self.enabled {
                 match self.variant {
                     TabVariant::Primary => {
-                        // M3: indicator width matches label, top-rounded corners
-                        let galley = ui.painter().layout_no_wrap(
-                            tab.label.clone(),
-                            label_font.clone(),
-                            text_color,
-                        );
-                        let label_width = galley.size().x + 16.0; // add padding
-                        let indicator_x =
-                            tab_rect.center().x - label_width / 2.0;
+                        // MD3: active indicator spans full tab width with top-rounded corners
                         let indicator_rect = Rect::from_min_size(
-                            Pos2::new(indicator_x, tab_rect.max.y - PRIMARY_INDICATOR_HEIGHT),
-                            Vec2::new(label_width, PRIMARY_INDICATOR_HEIGHT),
+                            Pos2::new(tab_rect.min.x, tab_rect.max.y - PRIMARY_INDICATOR_HEIGHT),
+                            Vec2::new(tab_width, PRIMARY_INDICATOR_HEIGHT),
                         );
                         let rounding = CornerRadius {
                             nw: INDICATOR_TOP_ROUNDING as u8,

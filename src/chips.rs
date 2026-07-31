@@ -415,13 +415,13 @@ fn resolve_chip_colors(
         };
     }
 
-    // Default flat chip: transparent background with outlineVariant border (input/unselected filter)
+    // Default flat chip: surface background with outlineVariant border (input/unselected filter/assist/suggestion)
     ChipColors {
-        bg: Color32::TRANSPARENT, // Transparent to show parent surface
-        border: outline_variant, // Border uses outlineVariant (1dp stroke)
-        text: on_surface_variant, // Text uses onSurfaceVariant
-        icon: primary, // Leading icon uses primary
-        delete_icon: on_surface_variant, // Remove icon uses onSurfaceVariant
+        bg: get_global_color("surface"), // MD3: non-elevated chips use surface, not transparent
+        border: outline_variant,
+        text: on_surface_variant,
+        icon: primary,
+        delete_icon: on_surface_variant,
         state_layer,
     }
 }
@@ -590,7 +590,7 @@ impl<'a> Widget for MaterialChip<'a> {
             text_pos,
             egui::Align2::LEFT_CENTER,
             &self.text,
-            egui::FontId::default(),
+            egui::FontId::proportional(14.0), // MD3: labelLarge = 14sp
             colors.text,
         );
 

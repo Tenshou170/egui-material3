@@ -357,10 +357,10 @@ impl<'a> Widget for MaterialIconButton<'a> {
                         // Selected state: transparent background with primary icon
                         (Color32::TRANSPARENT, primary, Color32::TRANSPARENT)
                     } else if response.hovered() {
-                        // Hover state: onSurface @ 8% state layer (M3 interaction state)
+                        // Hover state: onSurface @ 8% state layer; icon stays onSurfaceVariant (MD3)
                         (
-                            on_surface.linear_multiply(0.08),
-                            on_surface,
+                            Color32::from_rgba_unmultiplied(on_surface.r(), on_surface.g(), on_surface.b(), 20),
+                            on_surface_variant,
                             Color32::TRANSPARENT,
                         )
                     } else {
@@ -408,16 +408,14 @@ impl<'a> Widget for MaterialIconButton<'a> {
                 }
                 IconButtonVariant::Outlined => {
                     if is_selected {
-                        // Selected state: primary @ 10% background with primary icon and border
-                        (
-                            primary.linear_multiply(0.10),
-                            primary,
-                            primary,
-                        )
+                        // Selected state: inverseSurface fill, inverseOnSurface icon, no border (MD3)
+                        let inverse_surface = get_global_color("inverseSurface");
+                        let inverse_on_surface = get_global_color("inverseOnSurface");
+                        (inverse_surface, inverse_on_surface, Color32::TRANSPARENT)
                     } else if response.hovered() {
-                        // Hover state: onSurface @ 8% state layer (M3 interaction state)
+                        // Hover state: onSurface @ 8% state layer; icon stays onSurfaceVariant (MD3)
                         (
-                            on_surface.linear_multiply(0.08),
+                            Color32::from_rgba_unmultiplied(on_surface.r(), on_surface.g(), on_surface.b(), 20),
                             on_surface_variant,
                             outline,
                         )
@@ -543,17 +541,6 @@ impl<'a> Widget for MaterialIconButton<'a> {
             let font = FontId::proportional(icon_size);
             let final_icon_color = self.icon_color_override.unwrap_or(icon_color);
             ui.painter().text(icon_rect.center(), Align2::CENTER_CENTER, text, font, final_icon_color);
-        }
-
-        // Add ripple effect on hover (skip for Filled variant as it already has state changes)
-        if response.hovered() && self.enabled && self.variant != IconButtonVariant::Filled {
-            let ripple_color = Color32::from_rgba_premultiplied(
-                icon_color.r(),
-                icon_color.g(),
-                icon_color.b(),
-                30,
-            );
-            ui.painter().rect_filled(rect, corner_radius, ripple_color);
         }
 
         response

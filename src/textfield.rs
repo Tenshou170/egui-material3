@@ -99,11 +99,13 @@ impl<'a> Widget for MaterialTextField<'a> {
         let outline = get_global_color("outline");
 
         let cr_val = self.corner_radius.unwrap_or_else(|| {
+            // MD3: text fields always use 4dp — do NOT follow the global corner radius
             CornerRadius::same(4)
         });
         
         let actual_cr = if self.variant == TextFieldVariant::Filled {
-            CornerRadius { nw: cr_val.nw, ne: cr_val.ne, sw: 0, se: 0 }
+            // Filled: top corners only (4dp), square bottom
+            CornerRadius { nw: cr_val.nw.max(4), ne: cr_val.ne.max(4), sw: 0, se: 0 }
         } else {
             cr_val
         };
@@ -120,7 +122,9 @@ impl<'a> Widget for MaterialTextField<'a> {
                     bg_fill = surface_container_highest;
                 }
                 TextFieldVariant::Outlined => {
-                    stroke = Stroke::new(1.0_f32, if is_focused { primary } else { outline });
+                    // MD3: 2dp stroke when focused, 1dp at rest
+                    let width = if is_focused { 2.0_f32 } else { 1.0_f32 };
+                    stroke = Stroke::new(width, if is_focused { primary } else { outline });
                 }
             }
         } else {
@@ -206,7 +210,8 @@ impl<'a> Widget for MaterialTextField<'a> {
             } else {
                 on_surface_variant
             };
-            let line_width = 1.0;
+            // MD3: 2dp active indicator when focused, 1dp at rest
+            let line_width = if is_focused { 2.0_f32 } else { 1.0_f32 };
             
             // Adjust the coordinates to avoid overflowing the frame
             let adjusted_left = egui::pos2(bottom_left.x, bottom_left.y - line_width / 2.0);

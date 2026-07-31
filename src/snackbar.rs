@@ -317,7 +317,7 @@ impl<'a> MaterialSnackbar<'a> {
         self.visible = *visible;
         MaterialSnackbarWithOffset {
             snackbar: self,
-            vertical_offset,
+            _vertical_offset: vertical_offset,
         }
     }
 
@@ -337,10 +337,9 @@ impl<'a> MaterialSnackbar<'a> {
     }
 
     fn get_snackbar_style(&self) -> (Color32, Option<Stroke>) {
-        // Material 3 design tokens: use inverseSurface with a subtle border
         let bg_color = get_global_color("inverseSurface");
-        let border_stroke = Stroke::new(1.0_f32, get_global_color("outlineVariant"));
-        (bg_color, Some(border_stroke))
+        let border_color = get_global_color("outlineVariant");
+        (bg_color, Some(Stroke::new(1.0_f32, border_color)))
     }
 }
 
@@ -401,12 +400,12 @@ impl Widget for MaterialSnackbar<'_> {
             visible: _,
             auto_dismiss: _,
             show_time: _,
-            position,
+            position: _,
             corner_radius,
             elevation,
             behavior,
             width,
-            margin,
+            margin: _,
             show_close_icon,
             close_icon_color: _,
             leading_icon,
@@ -517,76 +516,18 @@ impl Widget for MaterialSnackbar<'_> {
         let snackbar_size = Vec2::new(snackbar_width, snackbar_height);
 
         // Allocate space
-        let (_allocated_rect, mut response) = ui.allocate_exact_size(snackbar_size, Sense::click());
+        let (allocated_rect, mut response) = ui.allocate_exact_size(snackbar_size, Sense::click());
 
-        // Calculate position
-        let screen_rect = ui.ctx().content_rect();
-        
-        // Apply margin for floating behavior
-        let effective_margin = if is_floating {
-            margin.unwrap_or(Vec2::new(24.0, 16.0))
-        } else {
-            Vec2::ZERO
-        };
-        
-        let snackbar_x = if is_floating {
-            (screen_rect.width() - snackbar_size.x).max(0.0) / 2.0
-        } else {
-            0.0
-        };
-        
-        let snackbar_y = match position {
-            SnackbarPosition::Bottom => {
-                if is_floating {
-                    screen_rect.height() - snackbar_size.y - effective_margin.y - 32.0
-                } else {
-                    screen_rect.height() - snackbar_size.y
-                }
-            }
-            SnackbarPosition::Top => {
-                if is_floating {
-                    32.0 + effective_margin.y
-                } else {
-                    0.0
-                }
-            }
-        };
+        let snackbar_rect = allocated_rect;
 
-        let snackbar_pos = egui::pos2(snackbar_x, snackbar_y);
-        let snackbar_rect = Rect::from_min_size(snackbar_pos, snackbar_size);
-
-        // Draw Material Design elevation 6dp shadow
-        let show_shadow = if let Some(elev) = elevation {
-            elev != egui::Shadow::NONE
-        } else {
-            ui.ctx().style().visuals.window_shadow != egui::Shadow::NONE
-        };
-
-        if show_shadow {
-            let shadow_layers = [
-                (
-                    Vec2::new(0.0, 6.0),
-                    10.0,
-                    Color32::from_rgba_unmultiplied(0, 0, 0, 20),
-                ),
-                (
-                    Vec2::new(0.0, 1.0),
-                    18.0,
-                    Color32::from_rgba_unmultiplied(0, 0, 0, 14),
-                ),
-                (
-                    Vec2::new(0.0, 3.0),
-                    5.0,
-                    Color32::from_rgba_unmultiplied(0, 0, 0, 12),
-                ),
-            ];
-
-            for (offset, blur_radius, color) in shadow_layers {
-                let shadow_rect = snackbar_rect.translate(offset).expand(blur_radius / 2.0);
-                ui.painter().rect_filled(shadow_rect, corner_radius, color);
+        // Only draw shadow when explicitly requested via .elevation() —
+        // the inverseSurface background already signals elevation through contrast.
+        // Default shadow is disabled to avoid ring artifacts on mobile GPUs.
+        if let Some(elev) = elevation {
+            if elev != egui::Shadow::NONE {
+                ui.painter().add(elev.as_shape(snackbar_rect, corner_radius));
             }
         }
-
         // Draw snackbar background
         ui.painter()
             .rect_filled(snackbar_rect, corner_radius, background_color);
@@ -675,7 +616,7 @@ impl Widget for MaterialSnackbar<'_> {
 #[must_use = "You should put this widget in a ui with `ui.add(widget);`"]
 pub struct MaterialSnackbarWithOffset<'a> {
     snackbar: MaterialSnackbar<'a>,
-    vertical_offset: f32,
+    _vertical_offset: f32,
 }
 
 impl Widget for MaterialSnackbarWithOffset<'_> {
@@ -722,12 +663,12 @@ impl Widget for MaterialSnackbarWithOffset<'_> {
             visible: _,
             auto_dismiss: _,
             show_time: _,
-            position,
+            position: _,
             corner_radius,
             elevation,
             behavior,
             width,
-            margin,
+            margin: _,
             show_close_icon,
             close_icon_color,
             leading_icon,
@@ -830,76 +771,18 @@ impl Widget for MaterialSnackbarWithOffset<'_> {
         let snackbar_size = Vec2::new(snackbar_width, snackbar_height);
 
         // Allocate space
-        let (_allocated_rect, mut response) = ui.allocate_exact_size(snackbar_size, Sense::click());
+        let (allocated_rect, mut response) = ui.allocate_exact_size(snackbar_size, Sense::click());
 
-        // Calculate position with vertical offset for stacking
-        let screen_rect = ui.ctx().content_rect();
-        
-        // Apply margin for floating behavior
-        let effective_margin = if is_floating {
-            margin.unwrap_or(Vec2::new(24.0, 16.0))
-        } else {
-            Vec2::ZERO
-        };
-        
-        let snackbar_x = if is_floating {
-            (screen_rect.width() - snackbar_size.x).max(0.0) / 2.0
-        } else {
-            0.0
-        };
-        
-        let snackbar_y = match position {
-            SnackbarPosition::Bottom => {
-                if is_floating {
-                    screen_rect.height() - snackbar_size.y - effective_margin.y - 32.0 - self.vertical_offset
-                } else {
-                    screen_rect.height() - snackbar_size.y - self.vertical_offset
-                }
-            }
-            SnackbarPosition::Top => {
-                if is_floating {
-                    32.0 + effective_margin.y + self.vertical_offset
-                } else {
-                    self.vertical_offset
-                }
-            }
-        };
+        let snackbar_rect = allocated_rect;
 
-        let snackbar_pos = egui::pos2(snackbar_x, snackbar_y);
-        let snackbar_rect = Rect::from_min_size(snackbar_pos, snackbar_size);
-
-        // Draw Material Design elevation 6dp shadow
-        let show_shadow = if let Some(elev) = elevation {
-            elev != egui::Shadow::NONE
-        } else {
-            ui.ctx().style().visuals.window_shadow != egui::Shadow::NONE
-        };
-
-        if show_shadow {
-            let shadow_layers = [
-                (
-                    Vec2::new(0.0, 6.0),
-                    10.0,
-                    Color32::from_rgba_unmultiplied(0, 0, 0, 20),
-                ),
-                (
-                    Vec2::new(0.0, 1.0),
-                    18.0,
-                    Color32::from_rgba_unmultiplied(0, 0, 0, 14),
-                ),
-                (
-                    Vec2::new(0.0, 3.0),
-                    5.0,
-                    Color32::from_rgba_unmultiplied(0, 0, 0, 12),
-                ),
-            ];
-
-            for (offset, blur_radius, color) in shadow_layers {
-                let shadow_rect = snackbar_rect.translate(offset).expand(blur_radius / 2.0);
-                ui.painter().rect_filled(shadow_rect, corner_radius, color);
+        // Only draw shadow when explicitly requested via .elevation() —
+        // the inverseSurface background already signals elevation through contrast.
+        // Default shadow is disabled to avoid ring artifacts on mobile GPUs.
+        if let Some(elev) = elevation {
+            if elev != egui::Shadow::NONE {
+                ui.painter().add(elev.as_shape(snackbar_rect, corner_radius));
             }
         }
-
         // Draw snackbar background
         ui.painter()
             .rect_filled(snackbar_rect, corner_radius, background_color);

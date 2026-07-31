@@ -726,15 +726,12 @@ impl<'a> MaterialDrawer<'a> {
 
         let item_response = ui.interact(item_outer_rect, item_id, Sense::click());
 
-        // Active indicator (rounded rectangle on the left)
+        // Active indicator — MD3 drawer uses full item_height (56dp) pill, not 32dp
         if item.active {
             let indicator_width = item_outer_rect.width();
-            let indicator_height = 32.0;
-            let indicator_y = y_pos + (item_height - indicator_height) / 2.0;
-            
             let indicator_rect = Rect::from_min_size(
-                egui::pos2(item_outer_rect.min.x, indicator_y),
-                Vec2::new(indicator_width, indicator_height),
+                egui::pos2(item_outer_rect.min.x, y_pos),
+                Vec2::new(indicator_width, item_height),
             );
 
             let active_color = get_global_color("secondaryContainer");
@@ -745,12 +742,9 @@ impl<'a> MaterialDrawer<'a> {
             );
         } else if item_response.hovered() && item.enabled {
             let indicator_width = item_outer_rect.width();
-            let indicator_height = 32.0;
-            let indicator_y = y_pos + (item_height - indicator_height) / 2.0;
-            
             let indicator_rect = Rect::from_min_size(
-                egui::pos2(item_outer_rect.min.x, indicator_y),
-                Vec2::new(indicator_width, indicator_height),
+                egui::pos2(item_outer_rect.min.x, y_pos),
+                Vec2::new(indicator_width, item_height),
             );
 
             let hover_color = get_global_color("onSurface").linear_multiply(0.08);
@@ -763,9 +757,8 @@ impl<'a> MaterialDrawer<'a> {
 
         let mut current_x = item_outer_rect.min.x + 16.0;
 
-        // Draw icon if present
-        if let Some(_icon) = &item.icon {
-            let icon_center = egui::pos2(current_x + 12.0, y_pos + item_height / 2.0);
+        // Draw icon if present — render as Material Symbol glyph (not a circle placeholder)
+        if let Some(icon_name) = &item.icon {
             let icon_color = if !item.enabled {
                 get_global_color("onSurface").linear_multiply(0.38)
             } else if item.active {
@@ -774,7 +767,15 @@ impl<'a> MaterialDrawer<'a> {
                 get_global_color("onSurfaceVariant")
             };
 
-            ui.painter().circle_filled(icon_center, 12.0, icon_color);
+            let icon_str = crate::material_symbol::material_symbol_text(icon_name);
+            let icon_center = egui::pos2(current_x + 12.0, y_pos + item_height / 2.0);
+            ui.painter().text(
+                icon_center,
+                egui::Align2::CENTER_CENTER,
+                &icon_str,
+                egui::FontId::proportional(24.0),
+                icon_color,
+            );
             current_x += 40.0;
         }
 

@@ -200,7 +200,7 @@ impl<'a> Widget for MaterialSlider<'a> {
 
         // Material Design colors
         let primary_color = get_global_color("primary");
-        let surface_variant = get_global_color("surfaceVariant");
+        let surface_container_highest = get_global_color("surfaceContainerHighest"); // MD3 inactive track
         let on_surface = get_global_color("onSurface");
         let on_surface_variant = get_global_color("onSurfaceVariant");
 
@@ -272,7 +272,7 @@ impl<'a> Widget for MaterialSlider<'a> {
         } else {
             // Active track and thumb use the primary color directly — no alpha
             // manipulation that would cause the over-saturated "overexposed" look.
-            (primary_color, surface_variant, effective_thumb_color)
+            (primary_color, surface_container_highest, effective_thumb_color)
         };
 
         // Draw state-layer ripple FIRST (behind everything) so it doesn't paint
@@ -532,7 +532,7 @@ impl<'a> Widget for MaterialRangeSlider<'a> {
 
         // Material Design colors
         let primary_color = get_global_color("primary");
-        let surface_variant = get_global_color("surfaceVariant");
+        let surface_container_highest = get_global_color("surfaceContainerHighest"); // MD3 inactive track
         let on_surface = get_global_color("onSurface");
         let on_surface_variant = get_global_color("onSurfaceVariant");
 
@@ -593,7 +593,7 @@ impl<'a> Widget for MaterialRangeSlider<'a> {
             let disabled_color = get_global_color("onSurface").linear_multiply(0.38);
             (disabled_color, disabled_color, disabled_color)
         } else {
-            (primary_color, surface_variant, primary_color)
+            (primary_color, surface_container_highest, primary_color)
         };
 
         // Draw state-layer ripple FIRST (behind track and thumbs).

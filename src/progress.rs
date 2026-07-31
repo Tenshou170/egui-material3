@@ -370,7 +370,8 @@ impl MaterialProgress {
     }
 
     fn resolve_track_color(&self) -> Color32 {
-        self.track_color.unwrap_or_else(|| get_global_color("secondaryContainer"))
+        // MD3: inactive track uses surfaceContainerHighest
+        self.track_color.unwrap_or_else(|| get_global_color("surfaceContainerHighest"))
     }
 
     fn resolve_buffer_color(&self) -> Color32 {

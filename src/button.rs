@@ -638,9 +638,9 @@ impl Widget for MaterialButton<'_> {
         } else {
             match variant {
                 MaterialButtonVariant::Filled => on_primary, // Use onPrimary for content on primary background
-                MaterialButtonVariant::Outlined => on_surface, // Use onSurface for content on transparent surface
-                MaterialButtonVariant::Text => on_surface, // Use onSurface for content on transparent surface
-                MaterialButtonVariant::Elevated => on_surface, // Use onSurface for content on elevated surface
+                MaterialButtonVariant::Outlined => primary, // MD3: outlined button label uses primary
+                MaterialButtonVariant::Text => primary,     // MD3: text button label uses primary
+                MaterialButtonVariant::Elevated => primary, // MD3: elevated button label uses primary
                 MaterialButtonVariant::FilledTonal => on_secondary_container, // Use onSecondaryContainer for content on tinted background
             }
         };

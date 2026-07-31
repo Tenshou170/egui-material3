@@ -285,16 +285,14 @@ impl<'a> Widget for MaterialFab<'a> {
         // M3 Color Roles - FAB Variants
         let primary = get_global_color("primary"); // Primary FAB container background (high emphasis)
         let on_primary = get_global_color("onPrimary"); // Icon/text on primary background
-        let secondary = get_global_color("secondary"); // Secondary FAB container background
-        let on_secondary = get_global_color("onSecondary"); // Icon/text on secondary background
-        let tertiary = get_global_color("tertiary"); // Tertiary FAB container background
-        let on_tertiary = get_global_color("onTertiary"); // Icon/text on tertiary background
-        let surface = get_global_color("surface"); // Surface FAB container (neutral emphasis)
-        let on_surface = get_global_color("onSurface"); // Icon/text on surface
-        let surface_container = get_global_color("surfaceContainer"); // Disabled FAB background
-        let surface_container_high = get_global_color("surfaceContainerHigh"); // Surface FAB hover state
-        let surface_container_highest = get_global_color("surfaceContainerHighest"); // Surface FAB pressed state
-        let outline = get_global_color("outline"); // Disabled icon color
+        let secondary = get_global_color("secondary");
+        let on_secondary = get_global_color("onSecondary");
+        let tertiary = get_global_color("tertiary");
+        let on_tertiary = get_global_color("onTertiary");
+        let on_surface = get_global_color("onSurface");
+        let surface_container = get_global_color("surfaceContainer");
+        let surface_container_high = get_global_color("surfaceContainerHigh");
+        let outline = get_global_color("outline");
 
         let (bg_color, icon_color) = if !enabled {
             // Disabled state: surfaceContainer background with outline @ 38% for icon (M3 spec)
@@ -305,16 +303,14 @@ impl<'a> Widget for MaterialFab<'a> {
         } else {
             match variant {
                 FabVariant::Surface => {
-                    // Surface FAB: use surface container variants for state layers
+                    // Surface FAB: surfaceContainerHigh base + onSurface state layers (MD3)
+                    let base_color = surface_container_high;
                     if response.is_pointer_button_down_on() {
-                        // Pressed state: surfaceContainerHighest (highest emphasis surface)
-                        (surface_container_highest, on_surface)
+                        (blend_state_layer(base_color, on_surface, 0.12), on_surface)
                     } else if response.hovered() {
-                        // Hover state: surfaceContainerHigh (high emphasis surface)
-                        (surface_container_high, on_surface)
+                        (blend_state_layer(base_color, on_surface, 0.08), on_surface)
                     } else {
-                        // Default state: surface with onSurface for neutral emphasis
-                        (surface, on_surface)
+                        (base_color, on_surface)
                     }
                 }
                 FabVariant::Primary => {
@@ -379,8 +375,8 @@ impl<'a> Widget for MaterialFab<'a> {
         // Calculate corner radius for FAB
         let corner_radius = match size_enum {
             FabSize::Small => 12.0,
-            FabSize::Large => 16.0,
-            _ => 14.0,
+            FabSize::Large => 28.0, // MD3 extraLarge shape
+            _ => 16.0,              // MD3 large shape for regular FAB
         };
 
         // Draw FAB background with less rounded corners

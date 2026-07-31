@@ -679,10 +679,9 @@ impl<'a> Widget for MaterialList<'a> {
     fn ui(self, ui: &mut Ui) -> Response {
         // Material Design 3 Color Roles
         // Surface & Outline Roles - for backgrounds and low-emphasis areas
-        let surface_container_lowest = get_global_color("surfaceContainerLowest");
-        let on_surface = get_global_color("onSurface"); // Content on surface
-        let on_surface_variant = get_global_color("onSurfaceVariant"); // Lower emphasis content
-        let outline_variant = get_global_color("outlineVariant"); // Borders and dividers
+        let on_surface = get_global_color("onSurface");
+        let on_surface_variant = get_global_color("onSurfaceVariant");
+        let outline_variant = get_global_color("outlineVariant");
 
         // Accent Color Roles - for selection states
         let primary_container = get_global_color("primaryContainer"); // Selected background
@@ -764,15 +763,8 @@ impl<'a> Widget for MaterialList<'a> {
         let desired_size = Vec2::new(list_width, total_height);
         let (rect, response) = ui.allocate_exact_size(desired_size, Sense::hover());
 
-        // Draw list background using surfaceContainerLowest (lowest emphasis surface container)
-        ui.painter().rect_filled(rect, 8.0, surface_container_lowest);
-        // Draw border using outlineVariant (less emphasized outline for structure)
-        ui.painter().rect_stroke(
-            rect,
-            8.0,
-            Stroke::new(1.0_f32, outline_variant),
-            egui::epaint::StrokeKind::Outside,
-        );
+        // Draw list background — transparent per MD3; items show the parent surface.
+        // No outer border on lists.
 
         let mut current_y = rect.min.y;
         let mut pending_actions = Vec::new();
@@ -843,12 +835,10 @@ impl<'a> Widget for MaterialList<'a> {
 
             // Draw hover state layer (M3 interaction state overlay)
             if item_response.hovered() && item.enabled {
-                // Use onSurface with 8% opacity for hover state layer (M3 spec)
-                let hover_color = Color32::from_rgba_premultiplied(
-                    on_surface.r(),
-                    on_surface.g(),
-                    on_surface.b(),
-                    20, // ~8% opacity (20/255 ≈ 0.078)
+                // Use onSurface with 8% opacity via unmultiplied alpha (MD3 spec)
+                let hover_color = Color32::from_rgba_unmultiplied(
+                    on_surface.r(), on_surface.g(), on_surface.b(),
+                    20, // ~8% opacity
                 );
                 ui.painter().rect_filled(item_rect, 0.0, hover_color);
             }
