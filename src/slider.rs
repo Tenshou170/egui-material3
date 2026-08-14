@@ -183,15 +183,31 @@ impl<'a> MaterialSlider<'a> {
 
 impl<'a> Widget for MaterialSlider<'a> {
     fn ui(self, ui: &mut Ui) -> Response {
+        // Read the Hachimi gui_scale stored as a temp value so all dimensional
+        // constants (touch target height, thumb radius, ripple) scale together
+        // with the rest of the overlay UI.  Falls back to 1.0 when not set
+        // (e.g. in standalone egui apps / the settings menu).
+        let scale = ui
+            .ctx()
+            .data(|d| d.get_temp::<f32>(egui::Id::new("gui_scale")))
+            .unwrap_or(1.0)
+            .max(0.1); // guard against pathological values
+
+        // MD3 touch-target height: 48dp minimum, scaled.
+        // We use 44dp as the base (slightly under spec but matches common usage)
+        // to keep the panel compact; it is still well above the 32px that was
+        // hardcoded before.
+        let touch_target_h = 44.0 * scale;
+
         // Default to filling available width, reserving space for the value label.
-        let value_reserve = if self.show_value { 52.0 } else { 0.0 };
+        let value_reserve = if self.show_value { 52.0 * scale } else { 0.0 };
         let slider_width = self.width.unwrap_or_else(|| {
-            (ui.available_width() - value_reserve).max(40.0)
+            (ui.available_width() - value_reserve).max(40.0 * scale)
         });
-        let height = 32.0;
+        let height = touch_target_h;
 
         let desired_size = if self.text.is_some() || self.show_value {
-            Vec2::new(slider_width + 100.0, height)
+            Vec2::new(slider_width + 100.0 * scale, height)
         } else {
             Vec2::new(slider_width, height)
         };
@@ -204,10 +220,12 @@ impl<'a> Widget for MaterialSlider<'a> {
         let on_surface = get_global_color("onSurface");
         let on_surface_variant = get_global_color("onSurfaceVariant");
 
-        // Calculate slider track area
+        // Calculate slider track area.  Track is 4dp tall, centered in the
+        // touch-target rect.
+        let track_h = 4.0 * scale;
         let track_rect = Rect::from_min_size(
-            Pos2::new(rect.min.x, rect.center().y - 2.0),
-            Vec2::new(slider_width, 4.0),
+            Pos2::new(rect.min.x, rect.center().y - track_h / 2.0),
+            Vec2::new(slider_width, track_h),
         );
 
         let old_value = *self.value;
@@ -224,10 +242,10 @@ impl<'a> Widget for MaterialSlider<'a> {
                 let normalized_value = normalized_value.clamp(0.0, 1.0);
                 let thumb_x = track_rect.min.x + normalized_value * track_rect.width();
                 let thumb_center = Pos2::new(thumb_x, track_rect.center().y);
-                
+
                 if let Some(mouse_pos) = response.interact_pointer_pos() {
                     let dist = (mouse_pos - thumb_center).length();
-                    response.dragged() && dist < 20.0
+                    response.dragged() && dist < 20.0 * scale
                 } else {
                     false
                 }
@@ -287,8 +305,8 @@ impl<'a> Widget for MaterialSlider<'a> {
                     if response.dragged() { 30 } else { 20 },
                 )
             });
-            // MD3 touch target / state layer radius = 20dp (40dp diameter)
-            ui.painter().circle_filled(thumb_center, 20.0, ripple_color);
+            // MD3 touch target / state layer radius = 20dp (40dp diameter), scaled.
+            ui.painter().circle_filled(thumb_center, 20.0 * scale, ripple_color);
         }
 
         // Draw inactive track
@@ -330,20 +348,20 @@ impl<'a> Widget for MaterialSlider<'a> {
                 .rect_filled(active_track_rect, 2.0, track_active_color);
         }
 
-        // Draw thumb based on shape
+        // Draw thumb based on shape — all dimensions scaled.
         match self.thumb_shape {
             ThumbShape::Round => {
                 // MD3 spec: 20dp thumb diameter (10dp radius) at rest; no size
                 // change on hover — the state layer handles the visual feedback.
-                ui.painter().circle_filled(thumb_center, 10.0, thumb_color);
+                ui.painter().circle_filled(thumb_center, 10.0 * scale, thumb_color);
             }
             ThumbShape::Handle => {
                 let handle_width = if response.hovered() || response.dragged() {
-                    8.0
+                    8.0 * scale
                 } else {
-                    4.0
+                    4.0 * scale
                 };
-                let handle_height = 20.0;
+                let handle_height = 20.0 * scale;
                 let handle_rect = Rect::from_center_size(
                     thumb_center,
                     Vec2::new(handle_width, handle_height),
@@ -365,12 +383,12 @@ impl<'a> Widget for MaterialSlider<'a> {
             };
 
             // Simple rectangle indicator
-            let indicator_font = FontId::proportional(12.0);
+            let indicator_font = FontId::proportional(12.0 * scale);
             let galley = ui.painter().layout_no_wrap(value_text, indicator_font, on_surface);
-            let indicator_size = Vec2::new(galley.size().x + 16.0, galley.size().y + 8.0);
+            let indicator_size = Vec2::new(galley.size().x + 16.0 * scale, galley.size().y + 8.0 * scale);
             let indicator_pos = Pos2::new(
                 thumb_center.x - indicator_size.x / 2.0,
-                thumb_center.y - indicator_size.y - 16.0,
+                thumb_center.y - indicator_size.y - 16.0 * scale,
             );
             let indicator_rect = Rect::from_min_size(indicator_pos, indicator_size);
 
@@ -394,7 +412,7 @@ impl<'a> Widget for MaterialSlider<'a> {
 
         // Draw label text
         if let Some(ref text) = self.text {
-            let text_pos = Pos2::new(track_rect.max.x + 16.0, rect.center().y - 16.0);
+            let text_pos = Pos2::new(track_rect.max.x + 16.0 * scale, rect.center().y - 16.0 * scale);
             let text_color = if self.enabled {
                 on_surface
             } else {
@@ -423,8 +441,8 @@ impl<'a> Widget for MaterialSlider<'a> {
             };
 
             let value_pos = Pos2::new(
-                track_rect.max.x + 16.0,
-                rect.center().y + if self.text.is_some() { 8.0 } else { 0.0 },
+                track_rect.max.x + 16.0 * scale,
+                rect.center().y + if self.text.is_some() { 8.0 * scale } else { 0.0 },
             );
 
             let value_color = if self.enabled {
@@ -437,7 +455,7 @@ impl<'a> Widget for MaterialSlider<'a> {
                 value_pos,
                 egui::Align2::LEFT_CENTER,
                 &value_text,
-                egui::FontId::proportional(12.0),
+                egui::FontId::proportional(12.0 * scale),
                 value_color,
             );
         }
@@ -519,11 +537,17 @@ impl<'a> MaterialRangeSlider<'a> {
 
 impl<'a> Widget for MaterialRangeSlider<'a> {
     fn ui(self, ui: &mut Ui) -> Response {
-        let slider_width = self.width.unwrap_or(200.0);
-        let height = 32.0;
+        let scale = ui
+            .ctx()
+            .data(|d| d.get_temp::<f32>(egui::Id::new("gui_scale")))
+            .unwrap_or(1.0)
+            .max(0.1);
+
+        let slider_width = self.width.unwrap_or(200.0 * scale);
+        let height = 44.0 * scale;
 
         let desired_size = if self.text.is_some() || self.show_values {
-            Vec2::new(slider_width + 120.0, height)
+            Vec2::new(slider_width + 120.0 * scale, height)
         } else {
             Vec2::new(slider_width, height)
         };
@@ -537,9 +561,10 @@ impl<'a> Widget for MaterialRangeSlider<'a> {
         let on_surface_variant = get_global_color("onSurfaceVariant");
 
         // Calculate slider track area
+        let track_h = 4.0 * scale;
         let track_rect = Rect::from_min_size(
-            Pos2::new(rect.min.x, rect.center().y - 2.0),
-            Vec2::new(slider_width, 4.0),
+            Pos2::new(rect.min.x, rect.center().y - track_h / 2.0),
+            Vec2::new(slider_width, track_h),
         );
 
         // Handle interaction
@@ -597,7 +622,7 @@ impl<'a> Widget for MaterialRangeSlider<'a> {
         };
 
         // Draw state-layer ripple FIRST (behind track and thumbs).
-        // MD3 state layer radius = 20dp.
+        // MD3 state layer radius = 20dp, scaled.
         if (response.hovered() || response.dragged()) && self.enabled {
             let ripple_color = Color32::from_rgba_unmultiplied(
                 primary_color.r(),
@@ -605,8 +630,8 @@ impl<'a> Widget for MaterialRangeSlider<'a> {
                 primary_color.b(),
                 if response.dragged() { 30 } else { 20 },
             );
-            ui.painter().circle_filled(start_center, 20.0, ripple_color);
-            ui.painter().circle_filled(end_center, 20.0, ripple_color);
+            ui.painter().circle_filled(start_center, 20.0 * scale, ripple_color);
+            ui.painter().circle_filled(end_center, 20.0 * scale, ripple_color);
         }
 
         // Draw inactive track (full width)
@@ -624,19 +649,19 @@ impl<'a> Widget for MaterialRangeSlider<'a> {
                 .rect_filled(active_track_rect, 2.0, track_active_color);
         }
 
-        // Draw thumbs — fixed 10dp radius per MD3 spec
+        // Draw thumbs — 10dp radius per MD3 spec, scaled
         match self.thumb_shape {
             ThumbShape::Round => {
-                ui.painter().circle_filled(start_center, 10.0, thumb_color);
-                ui.painter().circle_filled(end_center, 10.0, thumb_color);
+                ui.painter().circle_filled(start_center, 10.0 * scale, thumb_color);
+                ui.painter().circle_filled(end_center, 10.0 * scale, thumb_color);
             }
             ThumbShape::Handle => {
                 let handle_width = if response.hovered() || response.dragged() {
-                    8.0
+                    8.0 * scale
                 } else {
-                    4.0
+                    4.0 * scale
                 };
-                let handle_height = 20.0;
+                let handle_height = 20.0 * scale;
 
                 let start_handle_rect = Rect::from_center_size(
                     start_center,
@@ -656,7 +681,7 @@ impl<'a> Widget for MaterialRangeSlider<'a> {
 
         // Draw label
         if let Some(ref text) = self.text {
-            let text_pos = Pos2::new(track_rect.max.x + 16.0, rect.center().y - 16.0);
+            let text_pos = Pos2::new(track_rect.max.x + 16.0 * scale, rect.center().y - 16.0 * scale);
             let text_color = if self.enabled {
                 on_surface
             } else {
@@ -693,8 +718,8 @@ impl<'a> Widget for MaterialRangeSlider<'a> {
             );
 
             let value_pos = Pos2::new(
-                track_rect.max.x + 16.0,
-                rect.center().y + if self.text.is_some() { 8.0 } else { 0.0 },
+                track_rect.max.x + 16.0 * scale,
+                rect.center().y + if self.text.is_some() { 8.0 * scale } else { 0.0 },
             );
 
             let value_color = if self.enabled {
@@ -707,7 +732,7 @@ impl<'a> Widget for MaterialRangeSlider<'a> {
                 value_pos,
                 egui::Align2::LEFT_CENTER,
                 &value_text,
-                egui::FontId::proportional(12.0),
+                egui::FontId::proportional(12.0 * scale),
                 value_color,
             );
         }
