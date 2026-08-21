@@ -54,33 +54,34 @@ pub struct MaterialNavigationRail<'a> {
     items: &'a [NavRailItem],
     /// Override the rail width (defaults to `Self::WIDTH`).
     width: Option<f32>,
+    compact: bool,
 }
 
 impl<'a> MaterialNavigationRail<'a> {
-    /// M3 spec navigation rail width: 80dp.
-    pub const WIDTH: f32 = 80.0;
+    /// Navigation rail width: 68dp (compact default) / 80dp (standard).
+    pub const WIDTH: f32 = 68.0;
 
-    /// Height of each destination slot: icon (24dp) + gap (4dp) + label (12sp ≈ 16dp) + touch padding = 72dp.
-    const SLOT_H: f32 = 72.0;
+    /// Height of each destination slot: 56dp (compact) / 72dp (standard).
+    const SLOT_H: f32 = 56.0;
 
     /// Padding above the first item.
-    const TOP_PADDING: f32 = 12.0;
+    const TOP_PADDING: f32 = 8.0;
 
-    /// Active indicator pill dimensions (M3 spec: 56dp × 32dp).
-    const INDICATOR_W: f32 = 56.0;
-    const INDICATOR_H: f32 = 32.0;
+    /// Active indicator pill dimensions (48dp × 28dp).
+    const INDICATOR_W: f32 = 48.0;
+    const INDICATOR_H: f32 = 28.0;
 
     /// Gap between bottom of indicator pill and top of label text.
-    const ICON_LABEL_GAP: f32 = 4.0;
+    const ICON_LABEL_GAP: f32 = 3.0;
 
     /// Icon size in dp.
-    const ICON_SIZE: f32 = 24.0;
+    const ICON_SIZE: f32 = 20.0;
 
     /// Label font size in sp.
-    const LABEL_SIZE: f32 = 12.0;
+    const LABEL_SIZE: f32 = 11.0;
 
     pub fn new(selected: &'a mut usize, items: &'a [NavRailItem]) -> Self {
-        Self { selected, items, width: None }
+        Self { selected, items, width: None, compact: false }
     }
 
     pub fn width(mut self, w: f32) -> Self {
@@ -88,15 +89,25 @@ impl<'a> MaterialNavigationRail<'a> {
         self
     }
 
+    pub fn compact(mut self, compact: bool) -> Self {
+        self.compact = compact;
+        self
+    }
+
     /// Render the rail. Returns `(response, changed)`.
     /// The response rect covers the full rail area so the caller can use it
     /// for layout purposes.
     pub fn show(self, ui: &mut Ui) -> (Response, bool) {
-        let rail_w = self.width.unwrap_or(Self::WIDTH);
+        let (slot_h, indicator_w, indicator_h, icon_sz, label_sz, top_pad, default_w) = if self.compact {
+            (50.0, 44.0, 26.0, 18.0, 10.0, 4.0, 60.0)
+        } else {
+            (Self::SLOT_H, Self::INDICATOR_W, Self::INDICATOR_H, Self::ICON_SIZE, Self::LABEL_SIZE, Self::TOP_PADDING, Self::WIDTH)
+        };
+        let rail_w = self.width.unwrap_or(default_w);
 
         // Height: top padding + (n slots) — but never more than available height.
-        let items_h = self.items.len() as f32 * Self::SLOT_H;
-        let needed_h = Self::TOP_PADDING + items_h;
+        let items_h = self.items.len() as f32 * slot_h;
+        let needed_h = top_pad + items_h;
         let avail_h = ui.available_height();
         let rail_h = needed_h.max(avail_h); // always fill available height for the background
         let _ = rail_h;
@@ -122,22 +133,22 @@ impl<'a> MaterialNavigationRail<'a> {
             egui::Stroke::new(1.0_f32, divider_color),
         );
 
-        let icon_font  = FontId::proportional(Self::ICON_SIZE);
-        let label_font = FontId::proportional(Self::LABEL_SIZE);
+        let icon_font  = FontId::proportional(icon_sz);
+        let label_font = FontId::proportional(label_sz);
 
         let mut changed = false;
 
         for (i, item) in self.items.iter().enumerate() {
             // Slot top = top of rail + top padding + (i × slot height).
             // Clamp so items never render outside the visible rail rect.
-            let slot_top = rail_rect.min.y + Self::TOP_PADDING + i as f32 * Self::SLOT_H;
-            if slot_top + Self::SLOT_H > rail_rect.max.y + 1.0 {
+            let slot_top = rail_rect.min.y + top_pad + i as f32 * slot_h;
+            if slot_top + slot_h > rail_rect.max.y + 1.0 {
                 break; // not enough space — skip remaining items
             }
 
             let slot_rect = Rect::from_min_size(
                 Pos2::new(rail_rect.min.x, slot_top),
-                Vec2::new(rail_w, Self::SLOT_H),
+                Vec2::new(rail_w, slot_h),
             );
 
             let item_id  = ui.id().with(("nav_rail_item", i));
@@ -148,16 +159,16 @@ impl<'a> MaterialNavigationRail<'a> {
             // ── Active indicator pill ──────────────────────────────────────
             // Centered horizontally; vertically placed in the upper ~56% of the slot
             // (icon occupies the center of the pill, label sits below).
-            let pill_center_y = slot_top + Self::SLOT_H * 0.42;
+            let pill_center_y = slot_top + slot_h * 0.42;
             let indicator_rect = Rect::from_center_size(
                 Pos2::new(slot_rect.center().x, pill_center_y),
-                Vec2::new(Self::INDICATOR_W, Self::INDICATOR_H),
+                Vec2::new(indicator_w, indicator_h),
             );
 
             if is_selected {
                 ui.painter().rect_filled(
                     indicator_rect,
-                    Self::INDICATOR_H / 2.0,
+                    indicator_h / 2.0,
                     secondary_c,
                 );
             } else if is_hovered {
@@ -166,7 +177,7 @@ impl<'a> MaterialNavigationRail<'a> {
                 );
                 ui.painter().rect_filled(
                     indicator_rect,
-                    Self::INDICATOR_H / 2.0,
+                    indicator_h / 2.0,
                     hover_col,
                 );
             }
