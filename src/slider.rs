@@ -98,6 +98,9 @@ pub struct MaterialSlider<'a> {
     thumb_color: Option<Color32>,
     /// Secondary active track color
     secondary_active_color: Option<Color32>,
+    /// Compact mode: reduces touch-target height to 28dp and track height to 2dp.
+    /// Suitable for embedded playback bars where vertical space is constrained.
+    compact: bool,
 }
 
 impl<'a> MaterialSlider<'a> {
@@ -117,6 +120,7 @@ impl<'a> MaterialSlider<'a> {
             overlay_color: None,
             thumb_color: None,
             secondary_active_color: None,
+            compact: false,
         }
     }
 
@@ -179,6 +183,14 @@ impl<'a> MaterialSlider<'a> {
         self.secondary_active_color = Some(color);
         self
     }
+
+    /// Enable compact mode: reduces the touch-target height to 28dp and the
+    /// track height to 2dp. Useful for embedded playback bars where vertical
+    /// space is at a premium.
+    pub fn compact(mut self) -> Self {
+        self.compact = true;
+        self
+    }
 }
 
 impl<'a> Widget for MaterialSlider<'a> {
@@ -196,8 +208,9 @@ impl<'a> Widget for MaterialSlider<'a> {
         // MD3 touch-target height: 48dp minimum, scaled.
         // We use 44dp as the base (slightly under spec but matches common usage)
         // to keep the panel compact; it is still well above the 32px that was
-        // hardcoded before.
-        let touch_target_h = 44.0 * scale;
+        // hardcoded before. In compact mode, drop to 28dp with a 2dp track.
+        let touch_target_h = if self.compact { 28.0 * scale } else { 44.0 * scale };
+        let track_h_override = if self.compact { 2.0 * scale } else { 4.0 * scale };
 
         // Default to filling available width, reserving space for the value label.
         let value_reserve = if self.show_value { 52.0 * scale } else { 0.0 };
@@ -220,9 +233,9 @@ impl<'a> Widget for MaterialSlider<'a> {
         let on_surface = get_global_color("onSurface");
         let on_surface_variant = get_global_color("onSurfaceVariant");
 
-        // Calculate slider track area.  Track is 4dp tall, centered in the
-        // touch-target rect.
-        let track_h = 4.0 * scale;
+        // Calculate slider track area.  Track is 4dp tall (2dp in compact mode),
+        // centered in the touch-target rect.
+        let track_h = track_h_override;
         let track_rect = Rect::from_min_size(
             Pos2::new(rect.min.x, rect.center().y - track_h / 2.0),
             Vec2::new(slider_width, track_h),
@@ -306,7 +319,9 @@ impl<'a> Widget for MaterialSlider<'a> {
                 )
             });
             // MD3 touch target / state layer radius = 20dp (40dp diameter), scaled.
-            ui.painter().circle_filled(thumb_center, 20.0 * scale, ripple_color);
+            // In compact mode use 14dp to match the smaller thumb.
+            let ripple_r = if self.compact { 14.0 * scale } else { 20.0 * scale };
+            ui.painter().circle_filled(thumb_center, ripple_r, ripple_color);
         }
 
         // Draw inactive track
@@ -351,9 +366,10 @@ impl<'a> Widget for MaterialSlider<'a> {
         // Draw thumb based on shape — all dimensions scaled.
         match self.thumb_shape {
             ThumbShape::Round => {
-                // MD3 spec: 20dp thumb diameter (10dp radius) at rest; no size
-                // change on hover — the state layer handles the visual feedback.
-                ui.painter().circle_filled(thumb_center, 10.0 * scale, thumb_color);
+                // MD3 spec: 20dp thumb diameter (10dp radius) at rest. In compact
+                // mode use 6dp radius so the thumb is proportional to the 2dp track.
+                let thumb_r = if self.compact { 6.0 * scale } else { 10.0 * scale };
+                ui.painter().circle_filled(thumb_center, thumb_r, thumb_color);
             }
             ThumbShape::Handle => {
                 let handle_width = if response.hovered() || response.dragged() {
