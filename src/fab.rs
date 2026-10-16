@@ -283,73 +283,69 @@ impl<'a> Widget for MaterialFab<'a> {
         }
 
         // M3 Color Roles - FAB Variants
-        let primary = get_global_color("primary"); // Primary FAB container background (high emphasis)
-        let on_primary = get_global_color("onPrimary"); // Icon/text on primary background
-        let secondary = get_global_color("secondary");
-        let on_secondary = get_global_color("onSecondary");
-        let tertiary = get_global_color("tertiary");
-        let on_tertiary = get_global_color("onTertiary");
+        let primary = get_global_color("primary");
+        let primary_container = get_global_color("primaryContainer"); // Primary FAB container
+        let on_primary_container = get_global_color("onPrimaryContainer"); // Primary FAB content
+        let secondary_container = get_global_color("secondaryContainer"); // Secondary FAB container
+        let on_secondary_container = get_global_color("onSecondaryContainer"); // Secondary FAB content
+        let tertiary_container = get_global_color("tertiaryContainer"); // Tertiary FAB container
+        let on_tertiary_container = get_global_color("onTertiaryContainer"); // Tertiary FAB content
         let on_surface = get_global_color("onSurface");
-        let surface_container = get_global_color("surfaceContainer");
-        let surface_container_high = get_global_color("surfaceContainerHigh");
-        let outline = get_global_color("outline");
+        let surface_container_high = get_global_color("surfaceContainerHigh"); // Surface FAB container
 
         let (bg_color, icon_color) = if !enabled {
-            // Disabled state: surfaceContainer background with outline @ 38% for icon (M3 spec)
+            // Disabled state: on_surface @ 12% background with on_surface @ 38% for icon (M3 spec)
             (
-                surface_container,
-                outline.linear_multiply(0.38),
+                on_surface.linear_multiply(0.12),
+                on_surface.linear_multiply(0.38),
             )
         } else {
             match variant {
                 FabVariant::Surface => {
-                    // Surface FAB: surfaceContainerHigh base + onSurface state layers (MD3)
+                    // Surface FAB: surfaceContainerHigh base + primary content (M3 spec)
                     let base_color = surface_container_high;
+                    let content_color = primary;
                     if response.is_pointer_button_down_on() {
-                        (blend_state_layer(base_color, on_surface, 0.12), on_surface)
+                        (blend_state_layer(base_color, content_color, 0.10), content_color)
                     } else if response.hovered() {
-                        (blend_state_layer(base_color, on_surface, 0.08), on_surface)
+                        (blend_state_layer(base_color, content_color, 0.08), content_color)
                     } else {
-                        (base_color, on_surface)
+                        (base_color, content_color)
                     }
                 }
                 FabVariant::Primary => {
-                    // Primary FAB: use primary background with state layer overlay
-                    let base_color = primary;
-                    let content_color = on_primary;
+                    // Primary FAB: primaryContainer background with onPrimaryContainer content (M3 spec)
+                    let base_color = primary_container;
+                    let content_color = on_primary_container;
                     if response.is_pointer_button_down_on() {
-                        // Pressed state: 12% onPrimary overlay (M3 interaction state)
-                        (blend_state_layer(base_color, content_color, 0.12), content_color)
+                        // Pressed state: 10% overlay (M3 interaction state)
+                        (blend_state_layer(base_color, content_color, 0.10), content_color)
                     } else if response.hovered() {
-                        // Hover state: 8% onPrimary overlay (M3 interaction state)
+                        // Hover state: 8% overlay (M3 interaction state)
                         (blend_state_layer(base_color, content_color, 0.08), content_color)
                     } else {
                         (base_color, content_color)
                     }
                 }
                 FabVariant::Secondary => {
-                    // Secondary FAB: use secondary background with state layer overlay
-                    let base_color = secondary;
-                    let content_color = on_secondary;
+                    // Secondary FAB: secondaryContainer background with onSecondaryContainer content (M3 spec)
+                    let base_color = secondary_container;
+                    let content_color = on_secondary_container;
                     if response.is_pointer_button_down_on() {
-                        // Pressed state: 12% onSecondary overlay (M3 interaction state)
-                        (blend_state_layer(base_color, content_color, 0.12), content_color)
+                        (blend_state_layer(base_color, content_color, 0.10), content_color)
                     } else if response.hovered() {
-                        // Hover state: 8% onSecondary overlay (M3 interaction state)
                         (blend_state_layer(base_color, content_color, 0.08), content_color)
                     } else {
                         (base_color, content_color)
                     }
                 }
                 FabVariant::Tertiary => {
-                    // Tertiary FAB: use tertiary background with state layer overlay
-                    let base_color = tertiary;
-                    let content_color = on_tertiary;
+                    // Tertiary FAB: tertiaryContainer background with onTertiaryContainer content (M3 spec)
+                    let base_color = tertiary_container;
+                    let content_color = on_tertiary_container;
                     if response.is_pointer_button_down_on() {
-                        // Pressed state: 12% onTertiary overlay (M3 interaction state)
-                        (blend_state_layer(base_color, content_color, 0.12), content_color)
+                        (blend_state_layer(base_color, content_color, 0.10), content_color)
                     } else if response.hovered() {
-                        // Hover state: 8% onTertiary overlay (M3 interaction state)
                         (blend_state_layer(base_color, content_color, 0.08), content_color)
                     } else {
                         (base_color, content_color)
@@ -360,10 +356,8 @@ impl<'a> Widget for MaterialFab<'a> {
                     let google_brand = Color32::from_rgb(66, 133, 244);
                     let content_color = Color32::WHITE; // White icon/text on branded background
                     if response.is_pointer_button_down_on() {
-                        // Pressed state: 12% white overlay
-                        (blend_state_layer(google_brand, content_color, 0.12), content_color)
+                        (blend_state_layer(google_brand, content_color, 0.10), content_color)
                     } else if response.hovered() {
-                        // Hover state: 8% white overlay
                         (blend_state_layer(google_brand, content_color, 0.08), content_color)
                     } else {
                         (google_brand, content_color)
@@ -372,14 +366,32 @@ impl<'a> Widget for MaterialFab<'a> {
             }
         };
 
-        // Calculate corner radius for FAB
-        let corner_radius = match size_enum {
+        // Calculate corner radius for FAB (respecting global corner radius override)
+        let corner_radius = crate::theme::get_global_corner_radius().unwrap_or(match size_enum {
             FabSize::Small => 12.0,
             FabSize::Large => 28.0, // MD3 extraLarge shape
             _ => 16.0,              // MD3 large shape for regular FAB
-        };
+        });
 
-        // Draw FAB background with less rounded corners
+        // Draw elevation shadow (Level 3 resting / Level 4 hovered in M3)
+        if enabled {
+            let shadow_offset_y = if response.is_pointer_button_down_on() {
+                2.0
+            } else if response.hovered() {
+                4.0
+            } else {
+                3.0
+            };
+            let shadow_alpha = if response.hovered() { 40 } else { 28 };
+            let shadow_rect = rect.translate(Vec2::new(0.0, shadow_offset_y));
+            ui.painter().rect_filled(
+                shadow_rect,
+                corner_radius,
+                Color32::from_rgba_unmultiplied(0, 0, 0, shadow_alpha),
+            );
+        }
+
+        // Draw FAB background
         ui.painter().rect_filled(rect, corner_radius, bg_color);
 
         // Draw content

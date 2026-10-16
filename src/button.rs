@@ -534,7 +534,7 @@ impl Widget for MaterialButton<'_> {
         let on_primary = get_global_color("onPrimary"); // Content on primary background
         let secondary_container = get_global_color("secondaryContainer"); // Tonal button background
         let on_secondary_container = get_global_color("onSecondaryContainer"); // Content on tonal background
-        let surface = get_global_color("surface"); // Elevated button background, disabled button background
+        let surface_container_low = get_global_color("surfaceContainerLow"); // Elevated button background
         let on_surface = get_global_color("onSurface"); // Content on surface, disabled content @ 38%
         let outline = get_global_color("outline"); // Outlined button border
 
@@ -559,7 +559,7 @@ impl Widget for MaterialButton<'_> {
                 false,
             ),
             MaterialButtonVariant::Elevated => (
-                Some(surface),
+                Some(surface_container_low),
                 Some(Stroke::NONE),
                 CornerRadius::from(get_global_corner_radius().map(|r| r as u8).unwrap_or(20)),
                 true,
@@ -791,10 +791,19 @@ impl Widget for MaterialButton<'_> {
             let mut frame_fill = fill.unwrap_or(default_fill.unwrap_or(frame_fill));
             let mut frame_stroke = stroke.unwrap_or(default_stroke.unwrap_or(frame_stroke));
 
-            // Apply disabled styling (M3 spec: 38% opacity content, 12% opacity outline)
+            // Apply disabled styling (M3 spec: 38% opacity content, 12% opacity container/outline)
             if disabled {
-                frame_fill = surface; // Use surface for disabled button background
-                frame_stroke.color = on_surface.linear_multiply(0.12); // 12% opacity for disabled outline
+                frame_fill = match variant {
+                    MaterialButtonVariant::Filled
+                    | MaterialButtonVariant::Elevated
+                    | MaterialButtonVariant::FilledTonal => {
+                        on_surface.linear_multiply(0.12)
+                    }
+                    MaterialButtonVariant::Outlined | MaterialButtonVariant::Text => {
+                        Color32::TRANSPARENT
+                    }
+                };
+                frame_stroke.color = on_surface.linear_multiply(0.12);
                 frame_stroke.width = if matches!(variant, MaterialButtonVariant::Outlined) {
                     1.0 // Keep 1dp border for outlined variant
                 } else {
@@ -806,31 +815,33 @@ impl Widget for MaterialButton<'_> {
             if !disabled {
                 let state_layer_color = resolved_text_color;
                 if response.is_pointer_button_down_on() {
-                    // Pressed state: 12% opacity overlay (M3 interaction state)
-                    frame_fill = blend_overlay(frame_fill, state_layer_color, 0.12);
+                    // Pressed state: 10% opacity overlay (M3 interaction state)
+                    frame_fill = blend_overlay(frame_fill, state_layer_color, 0.10);
                 } else if response.hovered() {
                     // Hover state: 8% opacity overlay (M3 interaction state)
                     frame_fill = blend_overlay(frame_fill, state_layer_color, 0.08);
                 }
             }
 
-            // Draw elevation shadow if present
-            if let Some(shadow) = &elevation {
-                // Hover elevation boost for elevated buttons
-                let shadow = if !disabled && response.hovered() {
-                    Shadow {
-                        offset: [shadow.offset[0], shadow.offset[1] + 2],
-                        blur: shadow.blur + 4,
-                        spread: shadow.spread,
-                        color: shadow.color,
-                    }
-                } else {
-                    *shadow
-                };
-                let shadow_offset = Vec2::new(shadow.offset[0] as f32, shadow.offset[1] as f32);
-                let shadow_rect = rect.expand2(frame_expansion).translate(shadow_offset);
-                ui.painter()
-                    .rect_filled(shadow_rect, frame_cr, shadow.color);
+            // Draw elevation shadow if present (disabled buttons have 0dp elevation)
+            if !disabled {
+                if let Some(shadow) = &elevation {
+                    // Hover elevation boost for elevated buttons
+                    let shadow = if response.hovered() {
+                        Shadow {
+                            offset: [shadow.offset[0], shadow.offset[1] + 2],
+                            blur: shadow.blur + 4,
+                            spread: shadow.spread,
+                            color: shadow.color,
+                        }
+                    } else {
+                        *shadow
+                    };
+                    let shadow_offset = Vec2::new(shadow.offset[0] as f32, shadow.offset[1] as f32);
+                    let shadow_rect = rect.expand2(frame_expansion).translate(shadow_offset);
+                    ui.painter()
+                        .rect_filled(shadow_rect, frame_cr, shadow.color);
+                }
             }
 
             ui.painter().rect(

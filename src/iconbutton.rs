@@ -37,7 +37,7 @@
 //! - **Circular (default)**: 50% corner radius (fully rounded)
 //! - **Rectangular**: 20% corner radius (rounded rectangle)
 
-use crate::get_global_color;
+use crate::{blend_state_layer, get_global_color, get_global_corner_radius};
 use egui::{
     Align2, Color32, ColorImage, FontId, Rect, Response, Sense, Stroke, TextureHandle, TextureOptions, Ui, Vec2,
     Widget,
@@ -344,27 +344,54 @@ impl<'a> Widget for MaterialIconButton<'a> {
         let surface_container = get_global_color("surfaceContainer"); // Disabled background
 
         let (bg_color, icon_color, border_color) = if !self.enabled {
-            // Disabled state: surfaceContainer background, outline @ 38% icon (M3 spec)
-            (
-                surface_container,
-                outline.linear_multiply(0.38),
-                Color32::TRANSPARENT,
-            )
+            // Disabled state (M3 spec):
+            // Filled/FilledTonal: on_surface @ 12% container, on_surface @ 38% icon
+            // Outlined: transparent container, outline @ 12% border, on_surface @ 38% icon
+            // Standard: transparent container, no border, on_surface @ 38% icon
+            let disabled_content = on_surface.linear_multiply(0.38);
+            match self.variant {
+                IconButtonVariant::Filled | IconButtonVariant::FilledTonal => (
+                    on_surface.linear_multiply(0.12),
+                    disabled_content,
+                    Color32::TRANSPARENT,
+                ),
+                IconButtonVariant::Outlined => (
+                    Color32::TRANSPARENT,
+                    disabled_content,
+                    on_surface.linear_multiply(0.12),
+                ),
+                IconButtonVariant::Standard => (
+                    Color32::TRANSPARENT,
+                    disabled_content,
+                    Color32::TRANSPARENT,
+                ),
+            }
         } else {
             match self.variant {
                 IconButtonVariant::Standard => {
                     if is_selected {
                         // Selected state: transparent background with primary icon
-                        (Color32::TRANSPARENT, primary, Color32::TRANSPARENT)
-                    } else if response.hovered() {
-                        // Hover state: onSurface @ 8% state layer; icon stays onSurfaceVariant (MD3)
+                        let content_color = primary;
+                        if response.is_pointer_button_down_on() {
+                            (blend_state_layer(Color32::TRANSPARENT, content_color, 0.10), content_color, Color32::TRANSPARENT)
+                        } else if response.hovered() {
+                            (blend_state_layer(Color32::TRANSPARENT, content_color, 0.08), content_color, Color32::TRANSPARENT)
+                        } else {
+                            (Color32::TRANSPARENT, content_color, Color32::TRANSPARENT)
+                        }
+                    } else if response.is_pointer_button_down_on() {
                         (
-                            Color32::from_rgba_unmultiplied(on_surface.r(), on_surface.g(), on_surface.b(), 20),
+                            blend_state_layer(Color32::TRANSPARENT, on_surface, 0.10),
+                            on_surface_variant,
+                            Color32::TRANSPARENT,
+                        )
+                    } else if response.hovered() {
+                        (
+                            blend_state_layer(Color32::TRANSPARENT, on_surface, 0.08),
                             on_surface_variant,
                             Color32::TRANSPARENT,
                         )
                     } else {
-                        // Default state: transparent with onSurfaceVariant icon (lower emphasis)
                         (
                             Color32::TRANSPARENT,
                             on_surface_variant,
@@ -377,13 +404,12 @@ impl<'a> Widget for MaterialIconButton<'a> {
                     let base_color = primary;
                     let content_color = on_primary;
                     if is_selected {
-                        // Selected state: same as default for filled variant
                         (base_color, content_color, Color32::TRANSPARENT)
                     } else if response.is_pointer_button_down_on() {
-                        // Pressed state: 12% onPrimary overlay (M3 interaction state)
-                        (blend_state_layer(base_color, content_color, 0.12), content_color, Color32::TRANSPARENT)
+                        // Pressed state: 10% onPrimary overlay (M3 spec)
+                        (blend_state_layer(base_color, content_color, 0.10), content_color, Color32::TRANSPARENT)
                     } else if response.hovered() {
-                        // Hover state: 8% onPrimary overlay (M3 interaction state)
+                        // Hover state: 8% onPrimary overlay (M3 spec)
                         (blend_state_layer(base_color, content_color, 0.08), content_color, Color32::TRANSPARENT)
                     } else {
                         (base_color, content_color, Color32::TRANSPARENT)
@@ -394,13 +420,12 @@ impl<'a> Widget for MaterialIconButton<'a> {
                     let base_color = secondary_container;
                     let content_color = on_secondary_container;
                     if is_selected {
-                        // Selected state: same as default for tonal variant
                         (base_color, content_color, Color32::TRANSPARENT)
                     } else if response.is_pointer_button_down_on() {
-                        // Pressed state: 12% onSecondaryContainer overlay (M3 interaction state)
-                        (blend_state_layer(base_color, content_color, 0.12), content_color, Color32::TRANSPARENT)
+                        // Pressed state: 10% onSecondaryContainer overlay (M3 spec)
+                        (blend_state_layer(base_color, content_color, 0.10), content_color, Color32::TRANSPARENT)
                     } else if response.hovered() {
-                        // Hover state: 8% onSecondaryContainer overlay (M3 interaction state)
+                        // Hover state: 8% onSecondaryContainer overlay (M3 spec)
                         (blend_state_layer(base_color, content_color, 0.08), content_color, Color32::TRANSPARENT)
                     } else {
                         (base_color, content_color, Color32::TRANSPARENT)
@@ -408,19 +433,29 @@ impl<'a> Widget for MaterialIconButton<'a> {
                 }
                 IconButtonVariant::Outlined => {
                     if is_selected {
-                        // Selected state: inverseSurface fill, inverseOnSurface icon, no border (MD3)
+                        // Selected state: inverseSurface fill, inverseOnSurface icon, no border (M3)
                         let inverse_surface = get_global_color("inverseSurface");
                         let inverse_on_surface = get_global_color("inverseOnSurface");
-                        (inverse_surface, inverse_on_surface, Color32::TRANSPARENT)
-                    } else if response.hovered() {
-                        // Hover state: onSurface @ 8% state layer; icon stays onSurfaceVariant (MD3)
+                        if response.is_pointer_button_down_on() {
+                            (blend_state_layer(inverse_surface, inverse_on_surface, 0.10), inverse_on_surface, Color32::TRANSPARENT)
+                        } else if response.hovered() {
+                            (blend_state_layer(inverse_surface, inverse_on_surface, 0.08), inverse_on_surface, Color32::TRANSPARENT)
+                        } else {
+                            (inverse_surface, inverse_on_surface, Color32::TRANSPARENT)
+                        }
+                    } else if response.is_pointer_button_down_on() {
                         (
-                            Color32::from_rgba_unmultiplied(on_surface.r(), on_surface.g(), on_surface.b(), 20),
+                            blend_state_layer(Color32::TRANSPARENT, on_surface, 0.10),
+                            on_surface_variant,
+                            outline,
+                        )
+                    } else if response.hovered() {
+                        (
+                            blend_state_layer(Color32::TRANSPARENT, on_surface, 0.08),
                             on_surface_variant,
                             outline,
                         )
                     } else {
-                        // Default state: transparent with onSurfaceVariant icon and outline border
                         (Color32::TRANSPARENT, on_surface_variant, outline)
                     }
                 }
@@ -429,8 +464,7 @@ impl<'a> Widget for MaterialIconButton<'a> {
 
         // Calculate corner radius based on container style
         let corner_radius = if self.container {
-            // Rectangular container: smaller radius for more rectangular shape
-            rect.height() * 0.2 // About 8px for 40px button
+            get_global_corner_radius().unwrap_or(rect.height() * 0.2)
         } else {
             // Circular container: full radius
             rect.height() / 2.0
@@ -545,22 +579,6 @@ impl<'a> Widget for MaterialIconButton<'a> {
 
         response
     }
-}
-
-/// Blend a state layer overlay on top of a base color.
-///
-/// Used for M3 interactive states (hover: 8%, press: 12%).
-fn blend_state_layer(base: Color32, overlay: Color32, opacity: f32) -> Color32 {
-    let alpha = (opacity * 255.0) as u8;
-    let overlay_with_alpha = Color32::from_rgba_unmultiplied(overlay.r(), overlay.g(), overlay.b(), alpha);
-    // Alpha blending
-    let inv_alpha = 255 - alpha;
-    Color32::from_rgba_unmultiplied(
-        ((base.r() as u16 * inv_alpha as u16 + overlay_with_alpha.r() as u16 * alpha as u16) / 255) as u8,
-        ((base.g() as u16 * inv_alpha as u16 + overlay_with_alpha.g() as u16 * alpha as u16) / 255) as u8,
-        ((base.b() as u16 * inv_alpha as u16 + overlay_with_alpha.b() as u16 * alpha as u16) / 255) as u8,
-        base.a(),
-    )
 }
 
 /// Convenience function to create a standard icon button.
