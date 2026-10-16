@@ -218,12 +218,15 @@ impl<'a> Widget for MaterialCheckbox<'a> {
 
         // Determine colors based on state
         let (bg_color, border_color, check_color, border_width) = if !self.enabled {
-            // Disabled state: onSurface @ 38% opacity for all elements (M3 spec)
-            let disabled_color = on_surface.linear_multiply(0.38);
+            // Disabled state (M3 spec):
+            // Checked/indeterminate: container onSurface @ 38%, mark uses surface for contrast
+            // Unchecked: transparent container with onSurface @ 38% border
+            let disabled_container = on_surface.linear_multiply(0.38);
+            let disabled_check = get_global_color("surface");
             if *self.checked || self.indeterminate {
-                (disabled_color, Color32::TRANSPARENT, disabled_color, 0.0)
+                (disabled_container, Color32::TRANSPARENT, disabled_check, 0.0)
             } else {
-                (Color32::TRANSPARENT, disabled_color, disabled_color, self.border_width)
+                (Color32::TRANSPARENT, disabled_container, disabled_check, self.border_width)
             }
         } else if self.is_error {
             // Error state: use error color for container/border
@@ -244,6 +247,49 @@ impl<'a> Widget for MaterialCheckbox<'a> {
             // Default unchecked state: onSurfaceVariant border (lower emphasis)
             (Color32::TRANSPARENT, on_surface_variant, on_surface, self.border_width)
         };
+
+        // M3 state layer overlay (touch target hover/focus/press states drawn behind)
+        if self.enabled {
+            let overlay_rect = Rect::from_center_size(checkbox_rect.center(), Vec2::splat(28.0));
+            let overlay_color = if response.is_pointer_button_down_on() {
+                // Pressed state: 10% opacity (M3 interaction state)
+                if self.is_error {
+                    error.linear_multiply(0.10)
+                } else if *self.checked || self.indeterminate {
+                    primary.linear_multiply(0.10)
+                } else {
+                    on_surface.linear_multiply(0.10)
+                }
+            } else if response.hovered() {
+                // Hover state: 8% opacity (M3 interaction state)
+                if self.is_error {
+                    error.linear_multiply(0.08)
+                } else if *self.checked || self.indeterminate {
+                    primary.linear_multiply(0.08)
+                } else {
+                    on_surface.linear_multiply(0.08)
+                }
+            } else if response.has_focus() {
+                // Focus state: 10% opacity (M3 interaction state)
+                if self.is_error {
+                    error.linear_multiply(0.10)
+                } else if *self.checked || self.indeterminate {
+                    primary.linear_multiply(0.10)
+                } else {
+                    on_surface.linear_multiply(0.10)
+                }
+            } else {
+                Color32::TRANSPARENT
+            };
+
+            if overlay_color != Color32::TRANSPARENT {
+                ui.painter().circle_filled(
+                    overlay_rect.center(),
+                    overlay_rect.width() / 2.0,
+                    overlay_color,
+                );
+            }
+        }
 
         // Draw checkbox background
         ui.painter().rect_filled(checkbox_rect, 2.0, bg_color);
@@ -307,49 +353,6 @@ impl<'a> Widget for MaterialCheckbox<'a> {
                 egui::FontId::default(),
                 text_color,
             );
-        }
-
-        // M3 state layer overlay (40x40dp touch target, hover/focus/press states)
-        if self.enabled {
-            let overlay_rect = Rect::from_center_size(checkbox_rect.center(), Vec2::splat(28.0));
-            let overlay_color = if response.is_pointer_button_down_on() {
-                // Pressed state: 10% opacity (M3 interaction state)
-                if self.is_error {
-                    error.linear_multiply(0.10)
-                } else if *self.checked || self.indeterminate {
-                    primary.linear_multiply(0.10)
-                } else {
-                    on_surface.linear_multiply(0.10)
-                }
-            } else if response.hovered() {
-                // Hover state: 8% opacity (M3 interaction state)
-                if self.is_error {
-                    error.linear_multiply(0.08)
-                } else if *self.checked || self.indeterminate {
-                    primary.linear_multiply(0.08)
-                } else {
-                    on_surface.linear_multiply(0.08)
-                }
-            } else if response.has_focus() {
-                // Focus state: 10% opacity (M3 interaction state)
-                if self.is_error {
-                    error.linear_multiply(0.10)
-                } else if *self.checked || self.indeterminate {
-                    primary.linear_multiply(0.10)
-                } else {
-                    on_surface.linear_multiply(0.10)
-                }
-            } else {
-                Color32::TRANSPARENT
-            };
-
-            if overlay_color != Color32::TRANSPARENT {
-                ui.painter().circle_filled(
-                    overlay_rect.center(),
-                    overlay_rect.width() / 2.0,
-                    overlay_color,
-                );
-            }
         }
 
         response

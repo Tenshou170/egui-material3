@@ -228,50 +228,63 @@ impl<'a, T: PartialEq + Clone> Widget for MaterialRadio<'a, T> {
         let on_surface_variant = get_global_color("onSurfaceVariant"); // Disabled @ 38%
         let outline = get_global_color("outline"); // Unselected ring (2dp stroke)
 
-        let radio_size = 16.0;
+        let radio_size = 20.0;
         let radio_rect = Rect::from_min_size(
             Pos2::new(rect.min.x, rect.center().y - radio_size / 2.0),
             Vec2::splat(radio_size),
         );
 
-        let (border_color, fill_color, inner_color) = if !self.enabled {
-            // Disabled state: onSurfaceVariant @ 38% for all elements (M3 spec)
-            let disabled_color = on_surface_variant.linear_multiply(0.38);
-            (disabled_color, Color32::TRANSPARENT, disabled_color)
+        let (border_color, inner_color) = if !self.enabled {
+            // Disabled state: onSurface @ 38% for ring and dot (M3 spec)
+            let disabled_color = on_surface.linear_multiply(0.38);
+            (disabled_color, disabled_color)
         } else if is_selected {
             // Selected state: primary for ring and inner dot
-            (primary, self.background_color.unwrap_or(Color32::TRANSPARENT), primary)
-        } else if response.hovered() {
-            // Hover state unselected: onSurface @ 8% state layer (M3 interaction state)
-            let hover_overlay = self.overlay_color.unwrap_or_else(||
-                on_surface.linear_multiply(0.08)
-            );
-            (
-                outline, // Unselected ring uses outline color
-                hover_overlay,
-                on_surface_variant,
-            )
+            (primary, primary)
         } else {
             // Default unselected state: outline for ring
-            (outline, self.background_color.unwrap_or(Color32::TRANSPARENT), on_surface_variant)
+            (outline, Color32::TRANSPARENT)
         };
 
-        // Draw hover background
-        if fill_color != Color32::TRANSPARENT {
-            ui.painter()
-                .circle_filled(radio_rect.center(), radio_size / 2.0 + 6.0, fill_color);
+        // M3 state layer / ripple (40x40dp touch target, drawn behind ring/dot)
+        if self.enabled {
+            let ripple_radius = self.splash_radius.unwrap_or(20.0);
+            let state_color = self.overlay_color.unwrap_or_else(|| {
+                let base = if is_selected { primary } else { on_surface };
+                if response.is_pointer_button_down_on() {
+                    // Pressed state: 10% opacity (M3 spec)
+                    base.linear_multiply(0.10)
+                } else if response.hovered() {
+                    // Hover state: 8% opacity (M3 spec)
+                    base.linear_multiply(0.08)
+                } else if response.has_focus() {
+                    // Focus state: 10% opacity (M3 spec)
+                    base.linear_multiply(0.10)
+                } else {
+                    Color32::TRANSPARENT
+                }
+            });
+
+            if state_color != Color32::TRANSPARENT {
+                ui.painter().circle_filled(radio_rect.center(), ripple_radius, state_color);
+            }
         }
 
-        // Draw radio border
+        // Draw custom background inside radio circle if specified
+        if let Some(bg) = self.background_color {
+            ui.painter().circle_filled(radio_rect.center(), radio_size / 2.0, bg);
+        }
+
+        // Draw radio outer border (20dp diameter, 2dp stroke)
         ui.painter().circle_stroke(
             radio_rect.center(),
             radio_size / 2.0,
             Stroke::new(2.0_f32, border_color),
         );
 
-        // Draw selected inner circle
+        // Draw selected inner circle (10dp diameter, 5dp radius)
         if is_selected {
-            let inner_radius = self.inner_radius.unwrap_or(radio_size / 4.0);
+            let inner_radius = self.inner_radius.unwrap_or(5.0);
             ui.painter()
                 .circle_filled(radio_rect.center(), inner_radius, inner_color);
         }
@@ -280,11 +293,11 @@ impl<'a, T: PartialEq + Clone> Widget for MaterialRadio<'a, T> {
         if !self.text.is_empty() {
             let text_pos = Pos2::new(radio_rect.max.x + 8.0, rect.center().y);
 
-            // Label text: onSurface for enabled, onSurfaceVariant @ 38% for disabled (M3 spec)
+            // Label text: onSurface for enabled, onSurface @ 38% for disabled (M3 spec)
             let text_color = if self.enabled {
                 on_surface
             } else {
-                on_surface_variant.linear_multiply(0.38)
+                on_surface.linear_multiply(0.38)
             };
 
             ui.painter().text(
@@ -294,23 +307,6 @@ impl<'a, T: PartialEq + Clone> Widget for MaterialRadio<'a, T> {
                 egui::FontId::default(),
                 text_color,
             );
-        }
-
-        // M3 ripple effect on hover (40x40dp touch target)
-        if response.hovered() && self.enabled {
-            let ripple_color = self.overlay_color.unwrap_or_else(|| {
-                if is_selected {
-                    // Selected hover: primary @ 8% (M3 interaction state)
-                    primary.linear_multiply(0.08)
-                } else {
-                    // Unselected hover: onSurface @ 8% (M3 interaction state)
-                    on_surface.linear_multiply(0.08)
-                }
-            });
-
-            let ripple_radius = self.splash_radius.unwrap_or(radio_size / 2.0 + 8.0);
-            ui.painter()
-                .circle_filled(radio_rect.center(), ripple_radius, ripple_color);
         }
 
         response
@@ -622,15 +618,15 @@ impl<'a, T: PartialEq + Clone> Widget for RadioListTile<'a, T> {
         let outline = get_global_color("outline"); // Unselected ring
 
         let (border_color, inner_color) = if !self.enabled {
-            // Disabled state: onSurfaceVariant @ 38% (M3 spec)
-            let disabled_color = on_surface_variant.linear_multiply(0.38);
+            // Disabled state: onSurface @ 38% (M3 spec)
+            let disabled_color = on_surface.linear_multiply(0.38);
             (disabled_color, disabled_color)
         } else if is_selected {
             // Selected state: primary for both ring and dot
             (primary, primary)
         } else {
             // Unselected state: outline for ring
-            (outline, outline)
+            (outline, Color32::TRANSPARENT)
         };
         
         // Draw radio outer circle
@@ -649,7 +645,7 @@ impl<'a, T: PartialEq + Clone> Widget for RadioListTile<'a, T> {
         let text_color = if self.enabled {
             on_surface // Title text uses onSurface
         } else {
-            on_surface_variant.linear_multiply(0.38) // Disabled @ 38% (M3 spec)
+            on_surface.linear_multiply(0.38) // Disabled @ 38% (M3 spec)
         };
         
         let _text_rect_width = match self.control_affinity {
