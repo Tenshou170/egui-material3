@@ -24,7 +24,7 @@
 //! - **Corner radius**: 12dp
 //! - **Padding**: 16dp
 
-use crate::theme::get_global_color;
+use crate::{blend_state_layer, get_global_color, get_global_corner_radius};
 use egui::{
     ecolor::Color32,
     epaint::{CornerRadius, Stroke},
@@ -108,7 +108,7 @@ impl<'a> MaterialCard2<'a> {
             main_content: None,
             actions_content: None,
             min_size: Vec2::new(280.0, 200.0), // Larger default size for enhanced card
-            corner_radius: CornerRadius::from(12.0),
+            corner_radius: CornerRadius::from(get_global_corner_radius().unwrap_or(12.0)),
             clickable: false,
             media_height: 160.0,
             elevation: None,
@@ -395,9 +395,22 @@ impl Widget for MaterialCard2<'_> {
                 }
             }
 
-            // Draw card background
+            // Draw card background with state layer for clickable cards
+            let effective_bg = if clickable {
+                let on_surface = get_global_color("onSurface");
+                if response.is_pointer_button_down_on() {
+                    blend_state_layer(background_color, on_surface, 0.10)
+                } else if response.hovered() {
+                    blend_state_layer(background_color, on_surface, 0.08)
+                } else {
+                    background_color
+                }
+            } else {
+                background_color
+            };
+
             ui.painter()
-                .rect_filled(rect, corner_radius, background_color);
+                .rect_filled(rect, corner_radius, effective_bg);
 
             let mut current_y = rect.min.y;
 
