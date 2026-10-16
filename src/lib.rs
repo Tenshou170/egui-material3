@@ -272,6 +272,7 @@ pub mod topappbar;
 pub mod treeview;
 pub mod textfield;
 pub mod navigation_rail;
+pub mod bottomappbar;
 
 pub use {
     actionsheet::{action_sheet, ActionButton, ActionGroup, MaterialActionSheet},
@@ -339,6 +340,7 @@ pub use {
     treeview::{tree_view, MaterialTreeView, TreeViewItem, TreeViewState},
     textfield::{MaterialTextField, TextFieldVariant, MaterialNumberField},
     navigation_rail::{MaterialNavigationRail, NavRailItem},
+    bottomappbar::{bottom_app_bar, MaterialBottomAppBar},
 };
 
 

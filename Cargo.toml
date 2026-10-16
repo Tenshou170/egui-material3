@@ -6,7 +6,7 @@ name = "egui-material3"
 version = "0.0.12"
 edition = "2021"
 license = "MIT OR Apache-2.0"
-authors = ["Tenshou Zmeyev <tenshou170@gmail.com>"]
+authors = ["Tenshou Kurosaki <tenshou170@gmail.com>"]
 description = "Material Design 3 components for egui with comprehensive theming support"
 homepage = "https://github.com/Tenshou170/egui-material3"
 repository = "https://github.com/Tenshou170/egui-material3"
@@ -93,6 +93,11 @@ path = "examples/widget_gallery_example.rs"
 [[example]]
 name = "stories"
 path = "examples/stories/main.rs"
+
+[[example]]
+name = "svg_icon_demo"
+path = "examples/svg_icon_demo.rs"
+required-features = ["svg_emoji"]
 
 [package.metadata.docs.rs]
 all-features = true

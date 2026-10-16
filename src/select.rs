@@ -428,6 +428,16 @@ impl<'a> MaterialSelect<'a> {
         self.small = true;
         self
     }
+
+    /// Enable compact mode with minimal padding.
+    ///
+    /// Compact mode reduces vertical padding to create a smaller select component.
+    /// Useful for inline selections, data tables, or space-constrained UIs.
+    #[inline]
+    pub fn compact(mut self, compact: bool) -> Self {
+        self.small = compact;
+        self
+    }
 }
 
 impl<'a> Widget for MaterialSelect<'a> {

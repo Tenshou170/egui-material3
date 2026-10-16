@@ -1481,7 +1481,7 @@ impl<'a> MaterialDataTable<'a> {
                 // Row cells
                 for (cell_idx, cell) in row.cells.iter().enumerate() {
                     if let Some(column) = columns.get(cell_idx) {
-                        let _cell_rect = Rect::from_min_size(
+                        let cell_rect = Rect::from_min_size(
                             egui::pos2(current_x, current_y),
                             Vec2::new(column.width, row_height),
                         );
@@ -1558,6 +1558,11 @@ impl<'a> MaterialDataTable<'a> {
 
                             match &cell.content {
                                 CellContent::Text(cell_text) => {
+                                    // Save current clip rect and set clipping to cell bounds
+                                    let old_clip_rect = ui.clip_rect();
+                                    let cell_clip_rect = cell_rect.intersect(old_clip_rect);
+                                    ui.set_clip_rect(cell_clip_rect);
+
                                     // Render normal text with alignment
                                     let available_width = column.width - 32.0; // Account for padding
                                     let cell_font = if let Some((ref font_id, _)) = theme.data_text_style {
@@ -1657,8 +1662,16 @@ impl<'a> MaterialDataTable<'a> {
                                             Stroke::new(1.5_f32, icon_color),
                                         );
                                     }
+
+                                    // Restore original clip rect
+                                    ui.set_clip_rect(old_clip_rect);
                                 }
                                 CellContent::Widget(widget_fn) => {
+                                    // Save current clip rect and set clipping to cell bounds
+                                    let old_clip_rect = ui.clip_rect();
+                                    let cell_clip_rect = cell_rect.intersect(old_clip_rect);
+                                    ui.set_clip_rect(cell_clip_rect);
+
                                     // Render custom widget
                                     // Calculate widget rect based on alignment
                                     let padding = 8.0;
@@ -1713,6 +1726,9 @@ impl<'a> MaterialDataTable<'a> {
                                             };
                                         },
                                     );
+
+                                    // Restore original clip rect
+                                    ui.set_clip_rect(old_clip_rect);
                                 }
                             }
                         }

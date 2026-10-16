@@ -13,6 +13,7 @@ use std::path::PathBuf;
 // Import window modules - reorganized from src/ to examples/stories/ directory structure
 mod actionsheet_window;
 mod badge_window;
+mod bottomappbar_window;
 mod breadcrumbs_window;
 mod button_window;
 mod card2_window;
@@ -48,6 +49,7 @@ mod treeview_window;
 
 use actionsheet_window::ActionSheetWindow;
 use badge_window::BadgeWindow;
+use bottomappbar_window::BottomAppBarWindow;
 use breadcrumbs_window::BreadcrumbsWindow;
 use button_window::ButtonWindow;
 use card2_window::Card2Window;
@@ -127,6 +129,7 @@ struct MaterialApp {
     // Demo windows
     actionsheet_window: ActionSheetWindow,
     badge_window: BadgeWindow,
+    bottomappbar_window: BottomAppBarWindow,
     breadcrumbs_window: BreadcrumbsWindow,
     button_window: ButtonWindow,
     checkbox_window: CheckboxWindow,
@@ -169,6 +172,7 @@ impl Default for MaterialApp {
             color_pickers_open: HashMap::new(),
             actionsheet_window: ActionSheetWindow::default(),
             badge_window: BadgeWindow::default(),
+            bottomappbar_window: BottomAppBarWindow::default(),
             breadcrumbs_window: BreadcrumbsWindow::default(),
             button_window: ButtonWindow::default(),
             checkbox_window: CheckboxWindow::default(),
@@ -303,6 +307,7 @@ impl MaterialApp {
     fn close_all_windows(&mut self) {
         self.actionsheet_window.open = false;
         self.badge_window.open = false;
+        self.bottomappbar_window.open = false;
         self.breadcrumbs_window.open = false;
         self.button_window.open = false;
         self.checkbox_window.open = false;
@@ -577,6 +582,10 @@ impl eframe::App for MaterialApp {
                     self.badge_window.open = true;
                 }
 
+                if ui.add(MaterialButton::filled("Bottom App Bar Stories")).clicked() {
+                    self.bottomappbar_window.open = true;
+                }
+
                 if ui.add(MaterialButton::filled("Breadcrumbs Stories")).clicked() {
                     self.breadcrumbs_window.open = true;
                 }
@@ -730,6 +739,7 @@ impl eframe::App for MaterialApp {
         // Show demo windows
         self.actionsheet_window.show(ctx);
         self.badge_window.show(ctx);
+        self.bottomappbar_window.show(ctx);
         self.breadcrumbs_window.show(ctx);
         self.button_window.show(ctx);
         self.checkbox_window.show(ctx);
