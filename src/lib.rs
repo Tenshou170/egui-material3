@@ -326,6 +326,7 @@ pub use {
         get_global_color, get_global_theme, update_global_theme, ContrastLevel,
         MaterialThemeContext, MaterialThemeFile, ThemeMode,
         get_global_corner_radius, set_global_corner_radius,
+        blend_state_layer, shape, state_layer, elevation,
     },
     timeline::{
         timeline, MaterialTimeline, TimelineDot, TimelineDotColor, TimelineDotVariant,

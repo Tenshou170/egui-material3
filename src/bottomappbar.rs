@@ -175,7 +175,7 @@ impl<'a> Widget for MaterialBottomAppBar<'a> {
         let id_source = self.id_salt.as_ref()
             .map(|s| s.as_str())
             .unwrap_or("bottom_app_bar");
-        let id = ui.make_persistent_id(id_source);
+        let _id = ui.make_persistent_id(id_source);
 
         let background_color = self.get_background_color();
         let foreground_color = self.get_foreground_color();

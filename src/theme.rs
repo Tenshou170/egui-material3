@@ -1510,6 +1510,49 @@ pub fn set_global_corner_radius(radius: Option<f32>) {
     }
 }
 
+/// Material Design 3 Shape scale corner radii (in logical dp)
+pub mod shape {
+    pub const NONE: f32 = 0.0;
+    pub const EXTRA_SMALL: f32 = 4.0;
+    pub const SMALL: f32 = 8.0;
+    pub const MEDIUM: f32 = 12.0;
+    pub const LARGE: f32 = 16.0;
+    pub const EXTRA_LARGE: f32 = 28.0;
+    pub const FULL: f32 = 9999.0;
+}
+
+/// Material Design 3 State Layer Opacities
+pub mod state_layer {
+    pub const HOVER: f32 = 0.08;
+    pub const FOCUS: f32 = 0.10;
+    pub const PRESSED: f32 = 0.10;
+    pub const DRAGGED: f32 = 0.16;
+    pub const DISABLED_CONTENT: f32 = 0.38;
+    pub const DISABLED_CONTAINER: f32 = 0.12;
+}
+
+/// Material Design 3 Elevation Levels (in dp)
+pub mod elevation {
+    pub const LEVEL_0: f32 = 0.0;
+    pub const LEVEL_1: f32 = 1.0;
+    pub const LEVEL_2: f32 = 3.0;
+    pub const LEVEL_3: f32 = 6.0;
+    pub const LEVEL_4: f32 = 8.0;
+    pub const LEVEL_5: f32 = 12.0;
+}
+
+/// Blend a state layer overlay on top of a base color using M3 Porter-Duff source-over blending.
+pub fn blend_state_layer(base: Color32, overlay: Color32, opacity: f32) -> Color32 {
+    let alpha = (opacity.clamp(0.0, 1.0) * 255.0).round() as u8;
+    let inv_alpha = 255 - alpha;
+    Color32::from_rgba_unmultiplied(
+        ((base.r() as u16 * inv_alpha as u16 + overlay.r() as u16 * alpha as u16) / 255) as u8,
+        ((base.g() as u16 * inv_alpha as u16 + overlay.g() as u16 * alpha as u16) / 255) as u8,
+        ((base.b() as u16 * inv_alpha as u16 + overlay.b() as u16 * alpha as u16) / 255) as u8,
+        base.a(),
+    )
+}
+
 /// Detect OS theme preference using the dark-light crate (desktop platforms only)
 ///
 /// On Android, this function will return `ThemeMode::Light` as a fallback.
@@ -1658,7 +1701,7 @@ where
     let _shadow = theme.get_color_by_name("shadow");
 
     // === Selection colors ===
-    visuals.selection.bg_fill = primary.linear_multiply(0.2);
+    visuals.selection.bg_fill = primary_container;
     visuals.selection.stroke.color = primary;
 
     // === Hyperlink ===
