@@ -17,7 +17,7 @@
 //! - **primary**: Active label color
 //! - **onSurfaceVariant**: Inactive icon and label
 
-use crate::get_global_color;
+use crate::{blend_state_layer, get_global_color};
 use egui::{Color32, FontId, Pos2, Rect, Response, Sense, Ui, Vec2};
 
 /// A single destination in a `MaterialNavigationRail`.
@@ -58,27 +58,27 @@ pub struct MaterialNavigationRail<'a> {
 }
 
 impl<'a> MaterialNavigationRail<'a> {
-    /// Navigation rail width: 68dp (compact default) / 80dp (standard).
-    pub const WIDTH: f32 = 68.0;
+    /// Navigation rail width: 80dp (standard M3) / 68dp (compact).
+    pub const WIDTH: f32 = 80.0;
 
-    /// Height of each destination slot: 56dp (compact) / 72dp (standard).
-    const SLOT_H: f32 = 56.0;
+    /// Height of each destination slot: 72dp (standard M3) / 56dp (compact).
+    const SLOT_H: f32 = 72.0;
 
-    /// Padding above the first item.
-    const TOP_PADDING: f32 = 8.0;
+    /// Padding above the first item (12dp standard M3).
+    const TOP_PADDING: f32 = 12.0;
 
-    /// Active indicator pill dimensions (48dp × 28dp).
-    const INDICATOR_W: f32 = 48.0;
-    const INDICATOR_H: f32 = 28.0;
+    /// Active indicator pill dimensions (56dp × 32dp standard M3).
+    const INDICATOR_W: f32 = 56.0;
+    const INDICATOR_H: f32 = 32.0;
 
     /// Gap between bottom of indicator pill and top of label text.
-    const ICON_LABEL_GAP: f32 = 3.0;
+    const ICON_LABEL_GAP: f32 = 4.0;
 
     /// Icon size in dp.
-    const ICON_SIZE: f32 = 20.0;
+    const ICON_SIZE: f32 = 24.0;
 
     /// Label font size in sp.
-    const LABEL_SIZE: f32 = 11.0;
+    const LABEL_SIZE: f32 = 12.0;
 
     pub fn new(selected: &'a mut usize, items: &'a [NavRailItem]) -> Self {
         Self { selected, items, width: None, compact: false }
@@ -99,7 +99,7 @@ impl<'a> MaterialNavigationRail<'a> {
     /// for layout purposes.
     pub fn show(self, ui: &mut Ui) -> (Response, bool) {
         let (slot_h, indicator_w, indicator_h, icon_sz, label_sz, top_pad, default_w) = if self.compact {
-            (50.0, 44.0, 26.0, 18.0, 10.0, 4.0, 60.0)
+            (56.0, 48.0, 28.0, 20.0, 11.0, 8.0, 68.0)
         } else {
             (Self::SLOT_H, Self::INDICATOR_W, Self::INDICATOR_H, Self::ICON_SIZE, Self::LABEL_SIZE, Self::TOP_PADDING, Self::WIDTH)
         };
@@ -166,15 +166,28 @@ impl<'a> MaterialNavigationRail<'a> {
             );
 
             if is_selected {
+                let base_color = secondary_c;
+                let state_color = if item_res.is_pointer_button_down_on() {
+                    blend_state_layer(base_color, on_secondary_c, 0.10)
+                } else if is_hovered {
+                    blend_state_layer(base_color, on_secondary_c, 0.08)
+                } else {
+                    base_color
+                };
                 ui.painter().rect_filled(
                     indicator_rect,
                     indicator_h / 2.0,
-                    secondary_c,
+                    state_color,
+                );
+            } else if item_res.is_pointer_button_down_on() {
+                let press_col = on_surface_v.linear_multiply(0.10);
+                ui.painter().rect_filled(
+                    indicator_rect,
+                    indicator_h / 2.0,
+                    press_col,
                 );
             } else if is_hovered {
-                let hover_col = Color32::from_rgba_unmultiplied(
-                    on_surface_v.r(), on_surface_v.g(), on_surface_v.b(), 20,
-                );
+                let hover_col = on_surface_v.linear_multiply(0.08);
                 ui.painter().rect_filled(
                     indicator_rect,
                     indicator_h / 2.0,

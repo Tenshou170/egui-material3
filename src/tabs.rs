@@ -26,7 +26,7 @@
 //! - **Min touch target**: 48x48dp
 
 use crate::get_global_color;
-use egui::{self, Color32, FontId, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
+use egui::{self, FontId, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
 use egui::epaint::CornerRadius;
 
 /// Material Design tabs component.
@@ -427,26 +427,18 @@ impl<'a> Widget for MaterialTabs<'a> {
                 text_color.linear_multiply(0.38)
             };
 
-            // M3 state layer (hover overlay)
-            if is_hovered && self.enabled {
+            // M3 state layer (hover and pressed overlay)
+            if self.enabled {
                 let state_layer_color = match self.variant {
                     TabVariant::Primary => primary,
                     TabVariant::Secondary => on_surface,
                 };
-                let hover_color = Color32::from_rgba_unmultiplied(
-                    state_layer_color.r(),
-                    state_layer_color.g(),
-                    state_layer_color.b(),
-                    20, // ~8% opacity
-                );
-                match self.variant {
-                    TabVariant::Primary => {
-                        // MD3: state layer covers full tab width
-                        ui.painter().rect_filled(tab_rect, 0.0, hover_color);
-                    }
-                    TabVariant::Secondary => {
-                        ui.painter().rect_filled(tab_rect, 0.0, hover_color);
-                    }
+                if tab_response.is_pointer_button_down_on() {
+                    let press_color = state_layer_color.linear_multiply(0.10);
+                    ui.painter().rect_filled(tab_rect, 0.0, press_color);
+                } else if is_hovered {
+                    let hover_color = state_layer_color.linear_multiply(0.08);
+                    ui.painter().rect_filled(tab_rect, 0.0, hover_color);
                 }
             }
 

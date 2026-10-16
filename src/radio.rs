@@ -225,7 +225,6 @@ impl<'a, T: PartialEq + Clone> Widget for MaterialRadio<'a, T> {
         // M3 Color Roles - Radio Button States
         let primary = self.fill_color.unwrap_or_else(|| get_global_color("primary")); // Selected ring and dot
         let on_surface = get_global_color("onSurface"); // Hover state layer, text label
-        let on_surface_variant = get_global_color("onSurfaceVariant"); // Disabled @ 38%
         let outline = get_global_color("outline"); // Unselected ring (2dp stroke)
 
         let radio_size = 20.0;

@@ -235,19 +235,9 @@ impl<'a> Widget for MaterialBottomAppBar<'a> {
                         // Draw icon button background on hover/click
                         if sense_response.hovered() || sense_response.is_pointer_button_down_on() {
                             let bg_color = if sense_response.is_pointer_button_down_on() {
-                                Color32::from_rgba_unmultiplied(
-                                    foreground_color.r(),
-                                    foreground_color.g(),
-                                    foreground_color.b(),
-                                    30,
-                                )
+                                foreground_color.linear_multiply(0.10)
                             } else {
-                                Color32::from_rgba_unmultiplied(
-                                    foreground_color.r(),
-                                    foreground_color.g(),
-                                    foreground_color.b(),
-                                    20,
-                                )
+                                foreground_color.linear_multiply(0.08)
                             };
                             ui.painter()
                                 .circle_filled(rect.center(), icon_size / 2.0, bg_color);
@@ -285,19 +275,9 @@ impl<'a> Widget for MaterialBottomAppBar<'a> {
                             if sense_response.hovered() || sense_response.is_pointer_button_down_on()
                             {
                                 let bg_color = if sense_response.is_pointer_button_down_on() {
-                                    Color32::from_rgba_unmultiplied(
-                                        foreground_color.r(),
-                                        foreground_color.g(),
-                                        foreground_color.b(),
-                                        30,
-                                    )
+                                    foreground_color.linear_multiply(0.10)
                                 } else {
-                                    Color32::from_rgba_unmultiplied(
-                                        foreground_color.r(),
-                                        foreground_color.g(),
-                                        foreground_color.b(),
-                                        20,
-                                    )
+                                    foreground_color.linear_multiply(0.08)
                                 };
                                 ui.painter()
                                     .circle_filled(rect.center(), icon_size / 2.0, bg_color);

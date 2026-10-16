@@ -341,7 +341,6 @@ impl<'a> Widget for MaterialIconButton<'a> {
         let on_surface = get_global_color("onSurface"); // Hover state layer color
         let on_surface_variant = get_global_color("onSurfaceVariant"); // Default icon color (lower emphasis)
         let outline = get_global_color("outline"); // Border color, disabled icon @ 38%
-        let surface_container = get_global_color("surfaceContainer"); // Disabled background
 
         let (bg_color, icon_color, border_color) = if !self.enabled {
             // Disabled state (M3 spec):
