@@ -249,7 +249,9 @@ impl<'a> Widget for MaterialFab<'a> {
                 };
 
                 let text_width = if let Some(ref text) = self.text {
-                    let font_id = egui::FontId::proportional(14.0);
+                    let font_id = crate::theme::typography::font_id(
+                        crate::theme::typography::TypeRole::LabelLarge,
+                    );
                     ui.painter().layout_no_wrap(text.clone(), font_id, Color32::WHITE)
                         .size()
                         .x
@@ -366,12 +368,17 @@ impl<'a> Widget for MaterialFab<'a> {
             }
         };
 
-        // Calculate corner radius for FAB (respecting global corner radius override)
-        let corner_radius = crate::theme::get_global_corner_radius().unwrap_or(match size_enum {
-            FabSize::Small => 12.0,
-            FabSize::Large => 28.0, // MD3 extraLarge shape
-            _ => 16.0,              // MD3 large shape for regular FAB
-        });
+        // Each FAB size has its own shape role; the global shape scale and a theme-file
+        // `fab` radius both still apply.
+        let corner_radius = crate::theme::theme_shape_override(crate::theme::ShapeComponent::Fab)
+            .unwrap_or_else(|| {
+                let spec = match size_enum {
+                    FabSize::Small => 12.0,
+                    FabSize::Large => 28.0, // MD3 extraLarge shape
+                    _ => 16.0,              // MD3 large shape for regular FAB
+                };
+                (spec * crate::theme::get_global_shape_scale()).clamp(0.0, 96.0)
+            });
 
         // Draw elevation shadow (Level 3 resting / Level 4 hovered in M3)
         if enabled {
@@ -444,7 +451,9 @@ impl<'a> Widget for MaterialFab<'a> {
                         text_pos,
                         egui::Align2::LEFT_CENTER,
                         text,
-                        egui::FontId::proportional(14.0),
+                        crate::theme::typography::font_id(
+                            crate::theme::typography::TypeRole::LabelLarge,
+                        ),
                         icon_color,
                     );
                 }

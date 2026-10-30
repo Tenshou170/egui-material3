@@ -221,7 +221,7 @@ impl<'a> Widget for MaterialCheckbox<'a> {
             // Disabled state (M3 spec):
             // Checked/indeterminate: container onSurface @ 38%, mark uses surface for contrast
             // Unchecked: transparent container with onSurface @ 38% border
-            let disabled_container = on_surface.linear_multiply(0.38);
+            let disabled_container = on_surface.linear_multiply(crate::theme::state_layer::DISABLED_CONTENT);
             let disabled_check = get_global_color("surface");
             if *self.checked || self.indeterminate {
                 (disabled_container, Color32::TRANSPARENT, disabled_check, 0.0)
@@ -254,29 +254,29 @@ impl<'a> Widget for MaterialCheckbox<'a> {
             let overlay_color = if response.is_pointer_button_down_on() {
                 // Pressed state: 10% opacity (M3 interaction state)
                 if self.is_error {
-                    error.linear_multiply(0.10)
+                    error.linear_multiply(crate::theme::state_layer::PRESSED)
                 } else if *self.checked || self.indeterminate {
-                    primary.linear_multiply(0.10)
+                    primary.linear_multiply(crate::theme::state_layer::PRESSED)
                 } else {
-                    on_surface.linear_multiply(0.10)
+                    on_surface.linear_multiply(crate::theme::state_layer::PRESSED)
                 }
             } else if response.hovered() {
                 // Hover state: 8% opacity (M3 interaction state)
                 if self.is_error {
-                    error.linear_multiply(0.08)
+                    error.linear_multiply(crate::theme::state_layer::HOVER)
                 } else if *self.checked || self.indeterminate {
-                    primary.linear_multiply(0.08)
+                    primary.linear_multiply(crate::theme::state_layer::HOVER)
                 } else {
-                    on_surface.linear_multiply(0.08)
+                    on_surface.linear_multiply(crate::theme::state_layer::HOVER)
                 }
             } else if response.has_focus() {
                 // Focus state: 10% opacity (M3 interaction state)
                 if self.is_error {
-                    error.linear_multiply(0.10)
+                    error.linear_multiply(crate::theme::state_layer::PRESSED)
                 } else if *self.checked || self.indeterminate {
-                    primary.linear_multiply(0.10)
+                    primary.linear_multiply(crate::theme::state_layer::PRESSED)
                 } else {
-                    on_surface.linear_multiply(0.10)
+                    on_surface.linear_multiply(crate::theme::state_layer::PRESSED)
                 }
             } else {
                 Color32::TRANSPARENT
@@ -343,7 +343,7 @@ impl<'a> Widget for MaterialCheckbox<'a> {
             let text_color = if self.enabled {
                 on_surface
             } else {
-                on_surface.linear_multiply(0.38)
+                on_surface.linear_multiply(crate::theme::state_layer::DISABLED_CONTENT)
             };
 
             ui.painter().text(

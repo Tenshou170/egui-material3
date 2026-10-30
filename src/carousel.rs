@@ -9,7 +9,7 @@
 //! - **onSurfaceVariant**: Inactive indicator dots
 
 use crate::get_global_color;
-use egui::{self, FontId, Pos2, Rect, Response, Sense, Ui, Vec2};
+use egui::{self, Pos2, Rect, Response, Sense, Ui, Vec2};
 use egui::epaint::CornerRadius;
 
 /// A Material Design 3 Carousel component.
@@ -94,7 +94,7 @@ impl<'a> MaterialCarousel<'a> {
                 center,
                 egui::Align2::CENTER_CENTER,
                 &label,
-                FontId::proportional(14.0),
+                crate::theme::typography::font_id(crate::theme::typography::TypeRole::LabelLarge),
                 on_surface,
             );
         })

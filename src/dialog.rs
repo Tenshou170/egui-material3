@@ -481,8 +481,12 @@ impl<'a> MaterialDialog<'a> {
         let modal_frame = egui::Frame::default()
             .inner_margin(egui::vec2(0.0, 24.0))
             .fill(get_global_color("surfaceContainerHigh"))
-            // MD3 dialogs use extraLarge shape = 28dp minimum (not theme-variable)
-            .corner_radius(egui::CornerRadius::same(28))
+            // MD3 dialogs use the extraLarge shape role (28dp by spec).
+            .corner_radius(egui::CornerRadius::same(
+                crate::theme::component_radius(crate::theme::ShapeComponent::Dialog)
+                    .round()
+                    .clamp(0.0, 255.0) as u8,
+            ))
             .stroke(Stroke::NONE);
         
         let modal = Modal::new(self.id)
@@ -663,10 +667,20 @@ impl<'a> MaterialDialog<'a> {
         let _on_surface_variant = get_global_color("onSurfaceVariant");
 
         let [btn_h_padding, btn_v_padding] = button_padding.unwrap_or([12.0, 8.0]);
-        
+
+        // Dialog actions are MD3 label-large text. Resolve the role through the style so
+        // it picks up `Style::scale` (a literal `FontId` would ignore the GUI scale).
+        let label_role = crate::theme::typography::TypeRole::LabelLarge;
+        let label_font = ui
+            .style()
+            .text_styles
+            .get(&label_role.text_style())
+            .cloned()
+            .unwrap_or_else(|| label_role.font_id());
+
         let text_width = ui.painter().layout_no_wrap(
             action.text.clone(),
-            egui::FontId::default(),
+            label_font.clone(),
             Color32::WHITE,
         ).rect.width();
 
@@ -701,18 +715,25 @@ impl<'a> MaterialDialog<'a> {
         };
 
         // Draw button background
-        let btn_cr = crate::theme::get_global_corner_radius().unwrap_or(20.0);
+        let btn_cr = crate::theme::component_radius(crate::theme::ShapeComponent::Button);
         ui.painter().rect_filled(rect, btn_cr, bg_color);
 
-        // Draw state layer for pressed state
-        if response.is_pointer_button_down_on() {
-            let pressed_overlay = Color32::from_rgba_unmultiplied(
+        // State layer: pressed (10%) overrides hover (8%), per the M3 state management spec.
+        let state_alpha = if response.is_pointer_button_down_on() {
+            Some(crate::theme::state_layer::PRESSED)
+        } else if response.hovered() {
+            Some(crate::theme::state_layer::HOVER)
+        } else {
+            None
+        };
+        if let Some(alpha) = state_alpha {
+            let overlay = Color32::from_rgba_unmultiplied(
                 text_color.r(),
                 text_color.g(),
                 text_color.b(),
-                31,
-            ); // 12% opacity
-            ui.painter().rect_filled(rect, btn_cr, pressed_overlay);
+                (alpha * 255.0) as u8,
+            );
+            ui.painter().rect_filled(rect, btn_cr, overlay);
         }
 
         // Draw button text
@@ -720,7 +741,7 @@ impl<'a> MaterialDialog<'a> {
             rect.center(),
             egui::Align2::CENTER_CENTER,
             &action.text,
-            egui::FontId::proportional(14.0),
+            label_font,
             text_color,
         );
 

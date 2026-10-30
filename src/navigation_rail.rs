@@ -180,14 +180,14 @@ impl<'a> MaterialNavigationRail<'a> {
                     state_color,
                 );
             } else if item_res.is_pointer_button_down_on() {
-                let press_col = on_surface_v.linear_multiply(0.10);
+                let press_col = on_surface_v.linear_multiply(crate::theme::state_layer::PRESSED);
                 ui.painter().rect_filled(
                     indicator_rect,
                     indicator_h / 2.0,
                     press_col,
                 );
             } else if is_hovered {
-                let hover_col = on_surface_v.linear_multiply(0.08);
+                let hover_col = on_surface_v.linear_multiply(crate::theme::state_layer::HOVER);
                 ui.painter().rect_filled(
                     indicator_rect,
                     indicator_h / 2.0,

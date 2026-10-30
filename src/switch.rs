@@ -246,25 +246,27 @@ impl<'a> Widget for MaterialSwitch<'a> {
             // Disabled state (M3 spec)
             let disabled_track = if *self.selected {
                 // Disabled on: onSurface @ 12% track
-                on_surface.linear_multiply(0.12)
+                on_surface.linear_multiply(crate::theme::state_layer::DISABLED_CONTAINER)
             } else {
                 // Disabled off: surfaceContainerHighest @ 12% track
-                surface_container_highest.linear_multiply(0.12)
+                surface_container_highest
+                    .linear_multiply(crate::theme::state_layer::DISABLED_CONTAINER)
             };
             let disabled_thumb = if *self.selected {
                 // Disabled on: onSurface @ 100% thumb
                 on_surface
             } else {
                 // Disabled off: onSurface @ 38% thumb
-                on_surface.linear_multiply(0.38)
+                on_surface.linear_multiply(crate::theme::state_layer::DISABLED_CONTENT)
             };
-            let disabled_outline = on_surface.linear_multiply(0.12); // Disabled outline @ 12%
+            let disabled_outline =
+                on_surface.linear_multiply(crate::theme::state_layer::DISABLED_CONTAINER);
             let disabled_icon = if *self.selected {
                 // Disabled on: onSurface @ 38% icon
-                on_surface.linear_multiply(0.38)
+                on_surface.linear_multiply(crate::theme::state_layer::DISABLED_CONTENT)
             } else {
                 // Disabled off: surfaceContainerHighest @ 38% icon
-                surface_container_highest.linear_multiply(0.38)
+                surface_container_highest.linear_multiply(crate::theme::state_layer::DISABLED_CONTENT)
             };
             (disabled_track, disabled_thumb, disabled_outline, disabled_icon)
         } else if *self.selected {
@@ -312,10 +314,10 @@ impl<'a> Widget for MaterialSwitch<'a> {
                 // Selected state layers: primary color
                 if is_pressed || is_focused {
                     // Press/focus state: 10% opacity (M3 interaction state)
-                    primary.linear_multiply(0.10)
+                    primary.linear_multiply(crate::theme::state_layer::PRESSED)
                 } else if is_hovered {
                     // Hover state: 8% opacity (M3 interaction state)
-                    primary.linear_multiply(0.08)
+                    primary.linear_multiply(crate::theme::state_layer::HOVER)
                 } else {
                     Color32::TRANSPARENT
                 }
@@ -323,10 +325,10 @@ impl<'a> Widget for MaterialSwitch<'a> {
                 // Unselected state layers: onSurface color
                 if is_pressed || is_focused {
                     // Press/focus state: 10% opacity (M3 interaction state)
-                    on_surface.linear_multiply(0.10)
+                    on_surface.linear_multiply(crate::theme::state_layer::PRESSED)
                 } else if is_hovered {
                     // Hover state: 8% opacity (M3 interaction state)
-                    on_surface.linear_multiply(0.08)
+                    on_surface.linear_multiply(crate::theme::state_layer::HOVER)
                 } else {
                     Color32::TRANSPARENT
                 }
@@ -370,7 +372,7 @@ impl<'a> Widget for MaterialSwitch<'a> {
             let text_color = if self.enabled {
                 on_surface
             } else {
-                on_surface.linear_multiply(0.38)
+                on_surface.linear_multiply(crate::theme::state_layer::DISABLED_CONTENT)
             };
 
             ui.painter().text(

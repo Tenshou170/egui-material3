@@ -325,8 +325,13 @@ pub use {
     theme::{
         get_global_color, get_global_theme, update_global_theme, ContrastLevel,
         MaterialThemeContext, MaterialThemeFile, ThemeMode,
+        apply_theme, apply_theme_auto, load_fonts, load_themes,
         get_global_corner_radius, set_global_corner_radius,
-        blend_state_layer, shape, state_layer, elevation,
+        get_global_shape_scale, set_global_shape_scale,
+        get_global_density, set_global_density, Density,
+        component_radius, theme_shape_override, shadow, ShapeComponent,
+        blend_state_layer, shape, spacing, state_layer, typography, elevation,
+        COLOR_ROLE_NAMES,
     },
     timeline::{
         timeline, MaterialTimeline, TimelineDot, TimelineDotColor, TimelineDotVariant,

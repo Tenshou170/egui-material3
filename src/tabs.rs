@@ -21,7 +21,7 @@
 //! - **onSurface @ 38%**: Disabled tab text and icon
 //!
 //! ## Dimensions
-//! - **Height**: 46dp (text only), 72dp (with icons)
+//! - **Height**: 48dp (text only), 72dp (with icons)
 //! - **Indicator**: 3dp (primary), 2dp (secondary), 3dp top corner radius
 //! - **Min touch target**: 48x48dp
 
@@ -240,7 +240,7 @@ impl<'a> MaterialTabs<'a> {
 
     /// Set a custom height for the tab bar.
     ///
-    /// Default height is 46.0 for text-only tabs, 72.0 for tabs with icons.
+    /// Default height is 48.0 for text-only tabs, 72.0 for tabs with icons.
     pub fn height(mut self, height: f32) -> Self {
         self.height = Some(height);
         self
@@ -285,7 +285,7 @@ impl<'a> MaterialTabs<'a> {
 
     /// Enable compact mode.
     ///
-    /// Reduces the tab bar height to 32dp (from the standard 46dp) for
+    /// Reduces the tab bar height to 32dp (from the standard 48dp) for
     /// use in tight layouts like embedded config editors or narrow windows.
     pub fn compact(mut self) -> Self {
         self.compact = true;
@@ -294,7 +294,7 @@ impl<'a> MaterialTabs<'a> {
 }
 
 /// M3 tab height constants
-const TAB_HEIGHT_TEXT_ONLY: f32 = 46.0;
+const TAB_HEIGHT_TEXT_ONLY: f32 = 48.0;
 const TAB_HEIGHT_WITH_ICON: f32 = 72.0;
 /// M3 compact tab height constant — used by callers that need to allocate
 /// an exact rect for the tab bar before rendering.
@@ -309,9 +309,10 @@ const DIVIDER_HEIGHT: f32 = 1.0;
 const SCROLLABLE_TAB_PADDING: f32 = 24.0;
 /// M3 minimum tab width for touch targets
 const MIN_TAB_WIDTH: f32 = 48.0;
-/// M3 label font size
-const LABEL_FONT_SIZE: f32 = 12.0;
-const ICON_FONT_SIZE: f32 = 16.0;
+/// M3 tab labels use the titleSmall role (14sp/20dp).
+const LABEL_FONT_SIZE: f32 = crate::theme::typography::TypeRole::TitleSmall.size();
+/// M3 tab icons are 24dp.
+const ICON_FONT_SIZE: f32 = 24.0;
 
 impl<'a> Widget for MaterialTabs<'a> {
     fn ui(self, ui: &mut Ui) -> Response {

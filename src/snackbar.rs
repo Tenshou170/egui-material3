@@ -96,7 +96,9 @@ impl<'a> MaterialSnackbar<'a> {
             auto_dismiss: Some(Duration::from_secs(4)),
             show_time: None,
             position: SnackbarPosition::Bottom,
-            corner_radius: CornerRadius::from(4.0), // Material Design small shape radius
+            corner_radius: CornerRadius::from(crate::theme::component_radius(
+                crate::theme::ShapeComponent::Snackbar,
+            )),
             elevation: None,
             behavior: SnackBarBehavior::Fixed,
             width: None,
@@ -575,7 +577,7 @@ impl Widget for MaterialSnackbar<'_> {
                     .rect_filled(action_rect, CornerRadius::from(4.0), hover_color);
             }
             if action_response.is_pointer_button_down_on() {
-                let pressed_color = action_text_color.linear_multiply(0.10); // Material pressed opacity
+                let pressed_color = action_text_color.linear_multiply(crate::theme::state_layer::PRESSED); // Material pressed opacity
                 ui.painter()
                     .rect_filled(action_rect, CornerRadius::from(4.0), pressed_color);
             }
@@ -850,7 +852,7 @@ impl Widget for MaterialSnackbarWithOffset<'_> {
 
             // Material Design state layers for action button
             if action_response.hovered() {
-                let hover_color = action_text_color.linear_multiply(0.08);
+                let hover_color = action_text_color.linear_multiply(crate::theme::state_layer::HOVER);
                 ui.painter()
                     .rect_filled(action_rect, CornerRadius::from(4.0), hover_color);
             }
@@ -895,7 +897,7 @@ impl Widget for MaterialSnackbarWithOffset<'_> {
 
             // State layer for close button
             if close_response.hovered() {
-                let hover_color = close_icon_color.linear_multiply(0.08);
+                let hover_color = close_icon_color.linear_multiply(crate::theme::state_layer::HOVER);
                 ui.painter()
                     .circle_filled(close_rect.center(), 20.0, hover_color);
             }

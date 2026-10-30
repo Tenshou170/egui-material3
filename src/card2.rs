@@ -24,7 +24,7 @@
 //! - **Corner radius**: 12dp
 //! - **Padding**: 16dp
 
-use crate::{blend_state_layer, get_global_color, get_global_corner_radius};
+use crate::{blend_state_layer, get_global_color};
 use egui::{
     ecolor::Color32,
     epaint::{CornerRadius, Stroke},
@@ -108,7 +108,9 @@ impl<'a> MaterialCard2<'a> {
             main_content: None,
             actions_content: None,
             min_size: Vec2::new(280.0, 200.0), // Larger default size for enhanced card
-            corner_radius: CornerRadius::from(get_global_corner_radius().unwrap_or(12.0)),
+            corner_radius: CornerRadius::from(crate::theme::component_radius(
+                crate::theme::ShapeComponent::Card,
+            )),
             clickable: false,
             media_height: 160.0,
             elevation: None,
@@ -427,7 +429,7 @@ impl Widget for MaterialCard2<'_> {
                     title_pos,
                     egui::Align2::LEFT_TOP,
                     title,
-                    egui::FontId::proportional(20.0),
+                    crate::theme::typography::font_id(crate::theme::typography::TypeRole::TitleMedium),
                     get_global_color("onSurface"),
                 );
 
@@ -438,7 +440,7 @@ impl Widget for MaterialCard2<'_> {
                         subtitle_pos,
                         egui::Align2::LEFT_TOP,
                         subtitle,
-                        egui::FontId::proportional(14.0),
+                        crate::theme::typography::font_id(crate::theme::typography::TypeRole::BodyMedium),
                         get_global_color("onSurfaceVariant"),
                     );
                 }

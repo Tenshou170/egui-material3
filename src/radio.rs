@@ -235,7 +235,7 @@ impl<'a, T: PartialEq + Clone> Widget for MaterialRadio<'a, T> {
 
         let (border_color, inner_color) = if !self.enabled {
             // Disabled state: onSurface @ 38% for ring and dot (M3 spec)
-            let disabled_color = on_surface.linear_multiply(0.38);
+            let disabled_color = on_surface.linear_multiply(crate::theme::state_layer::DISABLED_CONTENT);
             (disabled_color, disabled_color)
         } else if is_selected {
             // Selected state: primary for ring and inner dot
@@ -252,13 +252,13 @@ impl<'a, T: PartialEq + Clone> Widget for MaterialRadio<'a, T> {
                 let base = if is_selected { primary } else { on_surface };
                 if response.is_pointer_button_down_on() {
                     // Pressed state: 10% opacity (M3 spec)
-                    base.linear_multiply(0.10)
+                    base.linear_multiply(crate::theme::state_layer::PRESSED)
                 } else if response.hovered() {
                     // Hover state: 8% opacity (M3 spec)
-                    base.linear_multiply(0.08)
+                    base.linear_multiply(crate::theme::state_layer::HOVER)
                 } else if response.has_focus() {
                     // Focus state: 10% opacity (M3 spec)
-                    base.linear_multiply(0.10)
+                    base.linear_multiply(crate::theme::state_layer::PRESSED)
                 } else {
                     Color32::TRANSPARENT
                 }
@@ -296,7 +296,7 @@ impl<'a, T: PartialEq + Clone> Widget for MaterialRadio<'a, T> {
             let text_color = if self.enabled {
                 on_surface
             } else {
-                on_surface.linear_multiply(0.38)
+                on_surface.linear_multiply(crate::theme::state_layer::DISABLED_CONTENT)
             };
 
             ui.painter().text(
@@ -618,7 +618,7 @@ impl<'a, T: PartialEq + Clone> Widget for RadioListTile<'a, T> {
 
         let (border_color, inner_color) = if !self.enabled {
             // Disabled state: onSurface @ 38% (M3 spec)
-            let disabled_color = on_surface.linear_multiply(0.38);
+            let disabled_color = on_surface.linear_multiply(crate::theme::state_layer::DISABLED_CONTENT);
             (disabled_color, disabled_color)
         } else if is_selected {
             // Selected state: primary for both ring and dot
@@ -644,7 +644,7 @@ impl<'a, T: PartialEq + Clone> Widget for RadioListTile<'a, T> {
         let text_color = if self.enabled {
             on_surface // Title text uses onSurface
         } else {
-            on_surface.linear_multiply(0.38) // Disabled @ 38% (M3 spec)
+            on_surface.linear_multiply(crate::theme::state_layer::DISABLED_CONTENT) // Disabled @ 38% (M3 spec)
         };
         
         let _text_rect_width = match self.control_affinity {

@@ -17,6 +17,7 @@
 //! # Basic Usage
 //!
 //! ```rust,no_run
+//! # let egui_ctx = egui::Context::default();
 //! use egui_material3::theme::{
 //!     setup_google_fonts, setup_local_fonts, setup_local_theme,
 //!     load_fonts, load_themes, update_window_background
@@ -29,7 +30,7 @@
 //!
 //! // Load prepared fonts and themes (accepts both &egui::Context and egui::Context)
 //! load_fonts(&egui_ctx);  // With reference
-//! load_fonts(egui_ctx);   // With owned context  
+//! load_fonts(egui_ctx.clone()); // With owned context
 //! load_themes();
 //!
 //! // Apply theme background (also flexible with context types)
@@ -119,7 +120,8 @@ pub struct PreparedTheme {
 static PREPARED_THEMES: Mutex<Vec<PreparedTheme>> = Mutex::new(Vec::new());
 
 /// Material Design color scheme structure from JSON
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(default)]
 pub struct MaterialScheme {
     pub primary: String,
     #[serde(rename = "surfaceTint")]
@@ -212,7 +214,8 @@ pub struct MaterialScheme {
     pub surface_container_highest: String,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(default)]
 pub struct MaterialThemeFile {
     pub description: String,
     pub seed: String,
@@ -222,6 +225,14 @@ pub struct MaterialThemeFile {
     pub extended_colors: Vec<serde_json::Value>,
     pub schemes: HashMap<String, MaterialScheme>,
     pub palettes: HashMap<String, HashMap<String, String>>,
+    /// Optional per-role font sizes in sp, keyed by [`typography::TypeRole::key`]
+    /// (for example `"m3/label-large": 13.0`). Roles absent here keep the M3 spec size.
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    pub typography: HashMap<String, f32>,
+    /// Optional per-component corner radii in dp, keyed by [`ShapeComponent::key`]
+    /// (for example `"card": 16.0`). Components absent here follow the shape scale.
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    pub shapes: HashMap<String, f32>,
 }
 
 #[derive(Clone, Debug, Copy, PartialEq)]
@@ -297,8 +308,44 @@ pub struct MaterialThemeContext {
     /// Global shape corner radius override (in logical pixels).
     /// When `Some`, MD3 widgets use this instead of their hardcoded MD3 defaults.
     /// When `None`, each widget uses its own MD3 spec value (e.g. 20dp for buttons,
-    /// 28dp for dialogs).
+    /// 28dp for dialogs), scaled by `shape_corner_scale`.
     pub shape_corner_radius: Option<f32>,
+    /// Multiplier applied to every component's MD3 shape radius when no explicit
+    /// `shape_corner_radius` override is set. 1.0 = spec, 0.0 = square, 2.0 = rounder.
+    pub shape_corner_scale: f32,
+    /// Interaction density: desktop metrics or the larger touch metrics used on Android.
+    pub density: Density,
+}
+
+/// Material Design 3 interaction density.
+///
+/// M3 defines a 40dp desktop density and a 48dp touch density; the difference is
+/// almost entirely the minimum interactive target size plus list/row padding.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Density {
+    #[default]
+    Desktop,
+    Touch,
+}
+
+impl std::fmt::Display for Density {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Density::Desktop => write!(f, "Desktop"),
+            Density::Touch => write!(f, "Touch"),
+        }
+    }
+}
+
+impl std::str::FromStr for Density {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Touch" => Ok(Density::Touch),
+            _ => Ok(Density::Desktop),
+        }
+    }
 }
 
 impl Default for MaterialThemeContext {
@@ -309,6 +356,8 @@ impl Default for MaterialThemeContext {
             material_theme: Some(get_default_material_theme()),
             selected_colors: HashMap::new(),
             shape_corner_radius: None,
+            shape_corner_scale: 1.0,
+            density: Density::Desktop,
         }
     }
 }
@@ -654,6 +703,8 @@ fn get_default_material_theme() -> MaterialThemeFile {
         extended_colors: Vec::new(),
         schemes,
         palettes: HashMap::new(),
+        typography: HashMap::new(),
+        shapes: HashMap::new(),
     }
 }
 
@@ -1213,6 +1264,10 @@ pub fn get_global_theme() -> Arc<Mutex<MaterialThemeContext>> {
 ///
 /// # Example
 /// ```rust
+/// use egui_material3::theme::{
+///     update_global_theme, ContrastLevel, MaterialThemeContext, ThemeMode,
+/// };
+///
 /// let mut theme_context = MaterialThemeContext::default();
 /// theme_context.theme_mode = ThemeMode::Dark;
 /// theme_context.contrast_level = ContrastLevel::High;
@@ -1271,8 +1326,10 @@ pub fn setup_local_fonts_from_bytes(font_name: &str, font_data: &[u8]) {
 /// Files matching `*theme*.json` or `*material-theme*.json` patterns are included as constants.
 ///
 /// # Example
-/// ```rust
-/// // Use build-time included themes (recommended for production)
+/// ```rust,no_run
+/// use egui_material3::theme::setup_local_theme;
+///
+/// // Use the built-in / resource themes (recommended for production)
 /// setup_local_theme(None);
 ///
 /// // Load specific theme file at runtime (useful for development/testing)
@@ -1298,7 +1355,9 @@ pub fn setup_local_theme(theme_path: Option<&str>) {
 /// application initialization.
 ///
 /// # Example
-/// ```rust
+/// ```rust,no_run
+/// use egui_material3::theme::{load_themes, setup_local_theme};
+///
 /// // Setup and load themes during app initialization
 /// setup_local_theme(Some("resources/my-theme.json"));
 /// load_themes();  // Apply the prepared theme globally
@@ -1328,16 +1387,21 @@ pub fn load_themes() {
 /// ```rust,no_run
 /// use egui_material3::theme::load_theme_from_json_str;
 ///
-/// const MY_THEME: &str = include_str!("../resources/my-theme.json");
+/// let json = r##"{
+///   "description": "My theme",
+///   "seed": "#6750A4",
+///   "coreColors": { "primary": "#6750A4" },
+///   "schemes": { "light": { "primary": "#6750A4" } }
+/// }"##;
 ///
-/// // Load the theme
-/// if let Err(e) = load_theme_from_json_str(MY_THEME) {
+/// if let Err(e) = load_theme_from_json_str(json) {
 ///     eprintln!("Failed to load theme: {}", e);
 /// }
 /// ```
 pub fn load_theme_from_json_str(json_data: &str) -> Result<(), String> {
-    let theme_file = serde_json::from_str::<MaterialThemeFile>(json_data)
+    let mut theme_file = serde_json::from_str::<MaterialThemeFile>(json_data)
         .map_err(|e| format!("Failed to parse theme JSON: {}", e))?;
+    fill_missing_roles(&mut theme_file);
 
     if let Ok(mut global_theme) = get_global_theme().lock() {
         global_theme.material_theme = Some(theme_file);
@@ -1401,17 +1465,18 @@ pub fn load_fonts<C: ContextRef>(ctx: C) {
 /// - Whenever theme settings change (mode or contrast level)
 ///
 /// # Example
-/// ```rust
-/// // During app initialization in eframe::run_native
+/// ```rust,no_run
+/// use egui_material3::theme::{load_themes, setup_local_theme, update_window_background};
+///
+/// let ctx = egui::Context::default();
+///
+/// // During app initialization, after loading the theme
 /// setup_local_theme(Some("my-theme.json"));
 /// load_themes();
-/// update_window_background(&cc.egui_ctx);  // Apply initial background
+/// update_window_background(&ctx); // Apply initial background
 ///
-/// // When theme settings change at runtime
-/// fn change_theme_mode(&mut self, ctx: &egui::Context) {
-///     // Update theme mode in global context...
-///     update_window_background(ctx);  // Apply new background
-/// }
+/// // Whenever theme settings change at runtime, re-apply
+/// update_window_background(&ctx);
 /// ```
 ///
 /// # Effects
@@ -1501,12 +1566,132 @@ pub fn get_global_corner_radius() -> Option<f32> {
     GLOBAL_THEME.lock().ok().and_then(|t| t.shape_corner_radius)
 }
 
-/// Set a global shape corner radius override for all MD3 widgets.
+/// Set a uniform corner radius for window-scale MD3 surfaces.
 ///
-/// Pass `None` to reset to per-widget MD3 spec defaults.
+/// Applies to dialogs, bottom sheets, menus, drawers and snackbars — the "window
+/// rounding" setting most apps expose. In-content components (buttons, cards, chips,
+/// text fields) keep their M3 shape role so the shape hierarchy survives; use
+/// [`set_global_shape_scale`] or a `shapes` entry in the theme file to change those.
+///
+/// Pass `None` to reset to per-component MD3 spec defaults.
 pub fn set_global_corner_radius(radius: Option<f32>) {
     if let Ok(mut theme) = GLOBAL_THEME.lock() {
         theme.shape_corner_radius = radius;
+    }
+}
+
+/// Get the global shape scale multiplier (see [`set_global_shape_scale`]).
+pub fn get_global_shape_scale() -> f32 {
+    GLOBAL_THEME.lock().ok().map(|t| t.shape_corner_scale).unwrap_or(1.0)
+}
+
+/// Scale every component's MD3 shape radius (1.0 = spec, 0.0 = square).
+///
+/// In-content components only: window-scale surfaces prefer the explicit
+/// [`set_global_corner_radius`] override, and a theme file `shapes` entry wins over both.
+pub fn set_global_shape_scale(scale: f32) {
+    if let Ok(mut theme) = GLOBAL_THEME.lock() {
+        theme.shape_corner_scale = scale.clamp(0.0, 4.0);
+    }
+}
+
+/// Get the global interaction density.
+pub fn get_global_density() -> Density {
+    GLOBAL_THEME.lock().ok().map(|t| t.density).unwrap_or_default()
+}
+
+/// Set the global interaction density (desktop 40dp vs touch 48dp targets).
+pub fn set_global_density(density: Density) {
+    if let Ok(mut theme) = GLOBAL_THEME.lock() {
+        theme.density = density;
+    }
+}
+
+/// Every M3 color role name accepted by [`MaterialThemeContext::get_color_by_name`].
+///
+/// Useful for building role pickers (theme editors, debug panels) without
+/// duplicating the list of roles.
+pub const COLOR_ROLE_NAMES: &[&str] = &[
+    "primary",
+    "onPrimary",
+    "primaryContainer",
+    "onPrimaryContainer",
+    "inversePrimary",
+    "primaryFixed",
+    "primaryFixedDim",
+    "onPrimaryFixed",
+    "onPrimaryFixedVariant",
+    "secondary",
+    "onSecondary",
+    "secondaryContainer",
+    "onSecondaryContainer",
+    "secondaryFixed",
+    "secondaryFixedDim",
+    "onSecondaryFixed",
+    "onSecondaryFixedVariant",
+    "tertiary",
+    "onTertiary",
+    "tertiaryContainer",
+    "onTertiaryContainer",
+    "tertiaryFixed",
+    "tertiaryFixedDim",
+    "onTertiaryFixed",
+    "onTertiaryFixedVariant",
+    "error",
+    "onError",
+    "errorContainer",
+    "onErrorContainer",
+    "surfaceDim",
+    "surface",
+    "surfaceTint",
+    "surfaceBright",
+    "surfaceContainerLowest",
+    "surfaceContainerLow",
+    "surfaceContainer",
+    "surfaceContainerHigh",
+    "surfaceContainerHighest",
+    "onSurface",
+    "onSurfaceVariant",
+    "outline",
+    "outlineVariant",
+    "inverseSurface",
+    "inverseOnSurface",
+    "surfaceVariant",
+    "background",
+    "onBackground",
+    "shadow",
+    "scrim",
+];
+
+/// Fill color roles a partial theme file omitted from the built-in default theme.
+///
+/// Material Theme Builder exports can be trimmed down to a handful of roles; an
+/// empty role would otherwise parse to `Color32::GRAY` and blank out the UI.
+/// Merging happens through the serialized form so the list of roles stays in one place.
+fn fill_missing_roles(file: &mut MaterialThemeFile) {
+    let defaults = get_default_material_theme();
+    for (key, scheme) in file.schemes.iter_mut() {
+        let Some(fallback) = defaults.schemes.get(key) else { continue };
+        let (Ok(mut target), Ok(source)) = (
+            serde_json::to_value(&*scheme),
+            serde_json::to_value(fallback),
+        ) else { continue };
+
+        if let (Some(target), Some(source)) = (target.as_object_mut(), source.as_object()) {
+            for (role, value) in source {
+                let missing = target
+                    .get(role)
+                    .and_then(|v| v.as_str())
+                    .map_or(true, |hex| hex.is_empty());
+                if missing {
+                    target.insert(role.clone(), value.clone());
+                }
+            }
+        }
+
+        if let Ok(merged) = serde_json::from_value(target) {
+            *scheme = merged;
+        }
     }
 }
 
@@ -1539,6 +1724,342 @@ pub mod elevation {
     pub const LEVEL_3: f32 = 6.0;
     pub const LEVEL_4: f32 = 8.0;
     pub const LEVEL_5: f32 = 12.0;
+}
+
+/// Material Design 3 type scale.
+///
+/// egui's `FontId` only carries size and family, so each role is exposed as a
+/// `TextStyle::Name("m3/...")` entry installed into `Style::text_styles` by
+/// [`apply_theme`]. Resolve them with [`typography::text_style`] so that text still
+/// picks up `Style::scale` (literal `FontId` sizes do not).
+///
+/// Roles flagged by [`TypeRole::is_emphasized`] are rendered at the MD3 medium
+/// weight; callers should use `RichText::strong()` when the font family ships a
+/// bold face.
+pub mod typography {
+    /// The 15 Material Design 3 type roles.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    pub enum TypeRole {
+        DisplayLarge,
+        DisplayMedium,
+        DisplaySmall,
+        HeadlineLarge,
+        HeadlineMedium,
+        HeadlineSmall,
+        TitleLarge,
+        TitleMedium,
+        TitleSmall,
+        BodyLarge,
+        BodyMedium,
+        BodySmall,
+        LabelLarge,
+        LabelMedium,
+        LabelSmall,
+    }
+
+    impl TypeRole {
+        /// Every role, in M3 scale order.
+        pub const ALL: [TypeRole; 15] = [
+            TypeRole::DisplayLarge,
+            TypeRole::DisplayMedium,
+            TypeRole::DisplaySmall,
+            TypeRole::HeadlineLarge,
+            TypeRole::HeadlineMedium,
+            TypeRole::HeadlineSmall,
+            TypeRole::TitleLarge,
+            TypeRole::TitleMedium,
+            TypeRole::TitleSmall,
+            TypeRole::BodyLarge,
+            TypeRole::BodyMedium,
+            TypeRole::BodySmall,
+            TypeRole::LabelLarge,
+            TypeRole::LabelMedium,
+            TypeRole::LabelSmall,
+        ];
+
+        /// Stable key used for `egui::TextStyle::Name` and theme JSON round-tripping.
+        pub const fn key(&self) -> &'static str {
+            match self {
+                TypeRole::DisplayLarge => "m3/display-large",
+                TypeRole::DisplayMedium => "m3/display-medium",
+                TypeRole::DisplaySmall => "m3/display-small",
+                TypeRole::HeadlineLarge => "m3/headline-large",
+                TypeRole::HeadlineMedium => "m3/headline-medium",
+                TypeRole::HeadlineSmall => "m3/headline-small",
+                TypeRole::TitleLarge => "m3/title-large",
+                TypeRole::TitleMedium => "m3/title-medium",
+                TypeRole::TitleSmall => "m3/title-small",
+                TypeRole::BodyLarge => "m3/body-large",
+                TypeRole::BodyMedium => "m3/body-medium",
+                TypeRole::BodySmall => "m3/body-small",
+                TypeRole::LabelLarge => "m3/label-large",
+                TypeRole::LabelMedium => "m3/label-medium",
+                TypeRole::LabelSmall => "m3/label-small",
+            }
+        }
+
+        /// Font size in sp (the default ``keyline`` of the role).
+        pub const fn size(&self) -> f32 {
+            match self {
+                TypeRole::DisplayLarge => 57.0,
+                TypeRole::DisplayMedium => 45.0,
+                TypeRole::DisplaySmall => 36.0,
+                TypeRole::HeadlineLarge => 32.0,
+                TypeRole::HeadlineMedium => 28.0,
+                TypeRole::HeadlineSmall => 24.0,
+                TypeRole::TitleLarge => 22.0,
+                TypeRole::TitleMedium => 16.0,
+                TypeRole::TitleSmall => 14.0,
+                TypeRole::BodyLarge => 16.0,
+                TypeRole::BodyMedium => 14.0,
+                TypeRole::BodySmall => 12.0,
+                TypeRole::LabelLarge => 14.0,
+                TypeRole::LabelMedium => 12.0,
+                TypeRole::LabelSmall => 11.0,
+            }
+        }
+
+        /// Default line height in sp, for vertical rhythm calculations.
+        pub const fn line_height(&self) -> f32 {
+            match self {
+                TypeRole::DisplayLarge => 64.0,
+                TypeRole::DisplayMedium => 52.0,
+                TypeRole::DisplaySmall => 44.0,
+                TypeRole::HeadlineLarge => 40.0,
+                TypeRole::HeadlineMedium => 36.0,
+                TypeRole::HeadlineSmall => 32.0,
+                TypeRole::TitleLarge => 28.0,
+                TypeRole::TitleMedium => 24.0,
+                TypeRole::TitleSmall => 20.0,
+                TypeRole::BodyLarge => 24.0,
+                TypeRole::BodyMedium => 20.0,
+                TypeRole::BodySmall => 16.0,
+                TypeRole::LabelLarge => 20.0,
+                TypeRole::LabelMedium => 16.0,
+                TypeRole::LabelSmall => 16.0,
+            }
+        }
+
+        /// M3 uses the medium weight for the whole label scale and the title scale.
+        pub const fn is_emphasized(&self) -> bool {
+            matches!(
+                self,
+                TypeRole::TitleLarge
+                    | TypeRole::TitleMedium
+                    | TypeRole::TitleSmall
+                    | TypeRole::LabelLarge
+                    | TypeRole::LabelMedium
+                    | TypeRole::LabelSmall
+            )
+        }
+
+        /// Resolve this role to its `egui::TextStyle` entry.
+        pub fn text_style(&self) -> egui::TextStyle {
+            egui::TextStyle::Name(self.key().into())
+        }
+
+        /// Resolve this role to a `FontId` (not scaled by `Style::scale`).
+        pub fn font_id(&self) -> egui::FontId {
+            egui::FontId::proportional(self.size())
+        }
+    }
+
+    /// `TextStyle` for a role: use with `RichText::text_style` or `ui.label(..)`.
+    pub fn text_style(role: TypeRole) -> egui::TextStyle {
+        role.text_style()
+    }
+
+    /// `FontId` for a role, for painter-level text that has no style context.
+    pub fn font_id(role: TypeRole) -> egui::FontId {
+        role.font_id()
+    }
+}
+
+/// Material Design 3 components, each with its own entry in the shape scale.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ShapeComponent {
+    Button,
+    Fab,
+    Card,
+    Dialog,
+    Menu,
+    Sheet,
+    TextField,
+    Chip,
+    Drawer,
+    Snackbar,
+}
+
+impl ShapeComponent {
+    /// Stable key used for theme JSON round-tripping (`"button"`, `"card"`, …).
+    pub const fn key(&self) -> &'static str {
+        match self {
+            ShapeComponent::Button => "button",
+            ShapeComponent::Fab => "fab",
+            ShapeComponent::Card => "card",
+            ShapeComponent::Dialog => "dialog",
+            ShapeComponent::Menu => "menu",
+            ShapeComponent::Sheet => "sheet",
+            ShapeComponent::TextField => "text-field",
+            ShapeComponent::Chip => "chip",
+            ShapeComponent::Drawer => "drawer",
+            ShapeComponent::Snackbar => "snackbar",
+        }
+    }
+
+    /// Whether this component is a window-scale floating surface.
+    ///
+    /// These follow the uniform [`set_global_corner_radius`] override (the "window
+    /// rounding" setting), while in-content components keep their M3 shape role.
+    pub const fn is_window_surface(&self) -> bool {
+        matches!(
+            self,
+            ShapeComponent::Dialog
+                | ShapeComponent::Sheet
+                | ShapeComponent::Menu
+                | ShapeComponent::Drawer
+                | ShapeComponent::Snackbar
+        )
+    }
+
+    /// MD3 spec corner radius for the component, before the global scale is applied.
+    pub const fn spec_radius(&self) -> f32 {
+        match self {
+            // 20dp on a 40dp button is the M3 pill shape; `shape::FULL` (9999) cannot
+            // be used here because radii are converted to `CornerRadius` (u8) by callers.
+            ShapeComponent::Button => 20.0,
+            ShapeComponent::Fab => shape::LARGE,
+            ShapeComponent::Card => shape::MEDIUM,
+            ShapeComponent::Dialog => shape::EXTRA_LARGE,
+            ShapeComponent::Menu => shape::EXTRA_SMALL,
+            ShapeComponent::Sheet => shape::EXTRA_LARGE,
+            ShapeComponent::TextField => shape::EXTRA_SMALL,
+            ShapeComponent::Chip => shape::SMALL,
+            ShapeComponent::Drawer => shape::LARGE,
+            ShapeComponent::Snackbar => shape::EXTRA_SMALL,
+        }
+    }
+}
+
+/// Resolve the corner radius for a component.
+///
+/// Precedence, highest first:
+/// 1. an explicit radius for this component in the loaded theme file (`shapes` key),
+/// 2. the uniform [`set_global_corner_radius`] override, for window-scale surfaces only,
+/// 3. [`ShapeComponent::spec_radius`] scaled by [`set_global_shape_scale`].
+///
+/// Keeping (2) limited to windows is what preserves M3's shape hierarchy: a user
+/// asking for squarer windows still gets pill buttons and 12dp cards.
+pub fn component_radius(component: ShapeComponent) -> f32 {
+    let Ok(theme) = GLOBAL_THEME.lock() else {
+        return component.spec_radius();
+    };
+
+    if let Some(radius) = shape_override_in(&theme, component) {
+        return radius;
+    }
+
+    if let Some(radius) = theme.shape_corner_radius.filter(|_| component.is_window_surface()) {
+        return radius.clamp(0.0, 96.0);
+    }
+
+    (component.spec_radius() * theme.shape_corner_scale.clamp(0.0, 4.0)).clamp(0.0, 96.0)
+}
+
+/// Radius for a component as declared by the loaded theme file's `shapes` section.
+///
+/// Widgets with size variants (FAB, chips) use this to check for an explicit override
+/// before falling back to their own size-specific spec radius.
+pub fn theme_shape_override(component: ShapeComponent) -> Option<f32> {
+    GLOBAL_THEME
+        .lock()
+        .ok()
+        .and_then(|theme| shape_override_in(&theme, component))
+}
+
+/// `theme_shape_override` for an already-locked context (the global mutex is not reentrant).
+fn shape_override_in(theme: &MaterialThemeContext, component: ShapeComponent) -> Option<f32> {
+    let radius = theme
+        .material_theme
+        .as_ref()
+        .and_then(|file| file.shapes.get(component.key()))?;
+    (radius.is_finite() && *radius >= 0.0).then(|| radius.clamp(0.0, 96.0))
+}
+
+/// Material Design 3 elevation shadow presets.
+///
+/// `level` is clamped to 0..=5 (dp values from [`elevation`]). Returns
+/// [`egui::Shadow::NONE`] below 1dp so flat surfaces stay flat.
+pub fn shadow(level: f32) -> egui::Shadow {
+    if level < 1.0 {
+        return egui::Shadow::NONE;
+    }
+    let dp = level.round().clamp(1.0, 5.0);
+    // Ambient + key light approximated as a single soft drop shadow.
+    let (offset_y, blur, alpha) = match dp as u8 {
+        1 => (1.0, 3.0, 38),
+        2 => (1.0, 6.0, 46),
+        3 => (2.0, 10.0, 52),
+        4 => (2.0, 14.0, 58),
+        _ => (3.0, 18.0, 64),
+    };
+    egui::Shadow {
+        offset: [0, offset_y as i8],
+        blur: blur as u8,
+        spread: 0,
+        color: Color32::from_black_alpha(alpha),
+    }
+}
+
+/// Material Design 3 spacing metrics, applied to `Style::spacing` by [`apply_theme`].
+pub mod spacing {
+    use super::Density;
+
+    /// Minimum interactive target size in dp.
+    pub const fn interact_size(density: Density) -> egui::Vec2 {
+        match density {
+            Density::Desktop => egui::Vec2::new(40.0, 40.0),
+            Density::Touch => egui::Vec2::new(48.0, 48.0),
+        }
+    }
+
+    /// Inner padding for text buttons (M3: 24dp leading/trailing, 10dp vertical).
+    pub const fn button_padding(density: Density) -> egui::Vec2 {
+        match density {
+            Density::Desktop => egui::Vec2::new(16.0, 10.0),
+            Density::Touch => egui::Vec2::new(24.0, 12.0),
+        }
+    }
+
+    /// Spacing between siblings in a layout.
+    pub const ITEM_SPACING: egui::Vec2 = egui::Vec2::new(8.0, 8.0);
+    /// Margin around floating windows and dialogs.
+    pub const WINDOW_MARGIN: egui::Margin = egui::Margin::same(24);
+    /// Margin around popup menus and dropdowns.
+    pub const MENU_MARGIN: egui::Margin = egui::Margin::same(8);
+    /// Indent per nesting level.
+    pub const INDENT: f32 = 16.0;
+    /// Default width of a slider.
+    pub const SLIDER_WIDTH: f32 = 160.0;
+    /// Height of a list row, per line count (M3: 56 / 72 / 88 dp).
+    pub fn list_row_height(lines: usize) -> f32 {
+        match lines {
+            0 | 1 => 56.0,
+            2 => 72.0,
+            _ => 88.0,
+        }
+    }
+
+    /// Height of a dense list row, per line count (M3 tight density: 48 / 64 / 76 dp).
+    ///
+    /// Density changes the row height only — the type scale stays the same.
+    pub fn list_row_height_dense(lines: usize) -> f32 {
+        match lines {
+            0 | 1 => 48.0,
+            2 => 64.0,
+            _ => 76.0,
+        }
+    }
 }
 
 /// Blend a state layer overlay on top of a base color using M3 Porter-Duff source-over blending.
@@ -1622,10 +2143,11 @@ pub fn detect_os_theme() -> ThemeMode {
 ///
 /// # Example
 /// ```rust,no_run
-/// use egui_material3::theme::{apply_theme, ThemeMode};
+/// # let egui_ctx = egui::Context::default();
+/// use egui_material3::theme::{apply_theme, apply_theme_auto, ThemeMode};
 ///
 /// // Use default OS theme detection
-/// apply_theme(&egui_ctx, None);
+/// apply_theme_auto(&egui_ctx);
 ///
 /// // Provide custom theme detection (e.g., for Android)
 /// apply_theme(&egui_ctx, Some(|| {
@@ -1638,6 +2160,8 @@ where
     C: ContextRef,
     F: FnOnce() -> ThemeMode,
 {
+    // NOTE: a bare `apply_theme(ctx, None)` cannot infer `F`, so the common "use the OS
+    // preference" case is served by [`apply_theme_auto`].
     let ctx = ctx.context_ref();
 
     let mut theme = if let Ok(theme) = GLOBAL_THEME.lock() {
@@ -1666,9 +2190,7 @@ where
 
     // Extract Material Design 3 color roles
     let primary = theme.get_primary_color();
-    let on_primary = theme.get_on_primary_color();
     let primary_container = theme.get_color_by_name("primaryContainer");
-    let on_primary_container = theme.get_color_by_name("onPrimaryContainer");
 
     let _secondary = theme.get_color_by_name("secondary");
     let _on_secondary = theme.get_color_by_name("onSecondary");
@@ -1689,7 +2211,6 @@ where
     let surface_container_high = theme.get_color_by_name("surfaceContainerHigh");
     let surface_container_highest = theme.get_color_by_name("surfaceContainerHighest");
     let surface_container_low = theme.get_color_by_name("surfaceContainerLow");
-    let surface_container_lowest = theme.get_color_by_name("surfaceContainerLowest");
 
     let outline = theme.get_color_by_name("outline");
     let outline_variant = theme.get_color_by_name("outlineVariant");
@@ -1701,60 +2222,64 @@ where
     let _shadow = theme.get_color_by_name("shadow");
 
     // === Selection colors ===
-    visuals.selection.bg_fill = primary_container;
-    visuals.selection.stroke.color = primary;
+    // M3 text selection: primary at 40% behind the text, caret outlined in primary.
+    visuals.selection.bg_fill = primary.linear_multiply(0.40);
+    visuals.selection.stroke = egui::Stroke::new(1.0_f32, primary);
 
     // === Hyperlink ===
     visuals.hyperlink_color = primary;
 
     // === Widget colors (noninteractive, inactive, hovered, active, open) ===
 
+    let card_radius = egui::CornerRadius::same(component_radius(ShapeComponent::Card).round() as u8);
+
     // Noninteractive widgets (disabled state)
     visuals.widgets.noninteractive.bg_fill = surface;
     visuals.widgets.noninteractive.weak_bg_fill = surface_variant;
     visuals.widgets.noninteractive.bg_stroke.color = outline_variant;
+    // Labels and other non-interactive text stay at full emphasis; `add_enabled(false)`
+    // widgets dim themselves through `fg_stroke` in the crate's own components.
     visuals.widgets.noninteractive.fg_stroke.color = on_surface;
+    visuals.widgets.noninteractive.corner_radius = card_radius;
 
-    // Inactive widgets (default state)
+    // Inactive widgets (default state): M3 container tone, no tinted fill.
+    visuals.widgets.inactive.bg_fill = surface_container_high;
     visuals.widgets.inactive.weak_bg_fill = surface_container_highest;
-    visuals.widgets.inactive.bg_fill = egui::Color32::from_rgba_unmultiplied(
-        primary.r(),
-        primary.g(),
-        primary.b(),
-        20,
-    );
-    visuals.widgets.inactive.bg_stroke.color = outline;
+    visuals.widgets.inactive.bg_stroke.color = outline_variant;
     visuals.widgets.inactive.fg_stroke.color = on_surface;
+    visuals.widgets.inactive.corner_radius = card_radius;
 
-    // Hovered widgets
-    visuals.widgets.hovered.weak_bg_fill = surface_container_high;
-    visuals.widgets.hovered.bg_fill = egui::Color32::from_rgba_unmultiplied(
-        primary.r(),
-        primary.g(),
-        primary.b(),
-        20,
-    );
+    // Hovered widgets: the 8% onSurface state layer over the container tone.
+    visuals.widgets.hovered.bg_fill = blend_state_layer(surface_container_high, on_surface, state_layer::HOVER);
+    visuals.widgets.hovered.weak_bg_fill = blend_state_layer(surface_container_highest, on_surface, state_layer::HOVER);
     visuals.widgets.hovered.bg_stroke.color = outline;
     visuals.widgets.hovered.fg_stroke.color = on_surface;
+    visuals.widgets.hovered.corner_radius = card_radius;
 
-    // Active widgets (pressed/selected state)
+    // Active widgets (pressed/selected state): 10% state layer, primary stroke.
+    visuals.widgets.active.bg_fill = blend_state_layer(surface_container_high, on_surface, state_layer::PRESSED);
     visuals.widgets.active.weak_bg_fill = primary_container;
-    visuals.widgets.active.bg_fill = primary;
     visuals.widgets.active.bg_stroke.color = primary;
-    visuals.widgets.active.fg_stroke.color = on_primary;
+    visuals.widgets.active.fg_stroke.color = on_surface;
+    visuals.widgets.active.corner_radius = card_radius;
 
     // Open widgets (menus, dropdowns)
     visuals.widgets.open.weak_bg_fill = surface_container_low;
-    visuals.widgets.open.bg_fill = primary_container;
-    visuals.widgets.open.bg_stroke.color = outline;
-    visuals.widgets.open.fg_stroke.color = on_primary_container;
+    visuals.widgets.open.bg_fill = surface_container_high;
+    visuals.widgets.open.bg_stroke.color = outline_variant;
+    visuals.widgets.open.fg_stroke.color = on_surface;
+    visuals.widgets.open.corner_radius = egui::CornerRadius::same(
+        component_radius(ShapeComponent::Menu).round() as u8,
+    );
 
     // === Background colors ===
     visuals.window_fill = surface;
     visuals.panel_fill = surface_container;
     visuals.faint_bg_color = surface_container_low;
-    visuals.extreme_bg_color = surface_container_lowest;
-    visuals.code_bg_color = surface_container_highest;
+    // `TextEdit` fills with `extreme_bg_color`; M3 filled text fields use the
+    // highest surface container, not the lowest.
+    visuals.extreme_bg_color = surface_container_highest;
+    visuals.code_bg_color = surface_container_high;
 
     // === Text colors ===
     visuals.override_text_color = None;
@@ -1768,26 +2293,82 @@ where
     visuals.window_stroke.color = outline_variant;
     visuals.window_stroke.width = 1.0;
 
-    // === Window shadow ===
-    // window_shadow applies to egui Windows — kept for dialogs and panels.
-    // popup_shadow applies to Areas with Order::Foreground (tooltips, dropdowns,
-    // snackbars) — zeroed here because floating widgets like MaterialSnackbar
-    // draw their own shadow internally; a second egui shadow causes doubling.
-    visuals.window_shadow = egui::Shadow {
-        offset: [0, 2],
-        blur: 8,
-        spread: 0,
-        color: egui::Color32::from_black_alpha(40),
-    };
-    visuals.popup_shadow = egui::Shadow::NONE;
+    // === Window and popup shadow (M3 elevation) ===
+    // Windows sit at elevation level 3. Popups/tooltips use the lighter level 1:
+    // MaterialSnackbar and MaterialTooltip paint their own shadows, so a heavy
+    // egui shadow on top of them reads as doubling.
+    visuals.window_shadow = shadow(elevation::LEVEL_3);
+    visuals.popup_shadow = shadow(elevation::LEVEL_1);
 
-    // Apply global corner radius if set
-    if let Some(radius) = GLOBAL_THEME.lock().ok().and_then(|t| t.shape_corner_radius) {
-        let cr = egui::CornerRadius::same(radius.round() as u8);
-        visuals.window_corner_radius = cr;
-    }
+    // === Shape ===
+    visuals.window_corner_radius = egui::CornerRadius::same(
+        component_radius(ShapeComponent::Dialog).round() as u8,
+    );
+    visuals.menu_corner_radius = egui::CornerRadius::same(
+        component_radius(ShapeComponent::Menu).round() as u8,
+    );
 
     ctx.set_visuals(visuals);
+
+    // === Typography, spacing, motion ===
+    // `set_visuals` only covers colors/shapes; everything below is what makes plain
+    // egui widgets (labels, collapsing headers, scroll areas, text edits) read as M3.
+    let density = theme.density;
+    // Theme files may override individual role sizes; everything else stays at spec.
+    let type_overrides = theme
+        .material_theme
+        .as_ref()
+        .map(|file| file.typography.clone())
+        .unwrap_or_default();
+    let font_for = |role: typography::TypeRole| {
+        match type_overrides.get(role.key()) {
+            Some(size) if size.is_finite() && *size > 0.0 => {
+                egui::FontId::proportional(*size)
+            }
+            _ => role.font_id(),
+        }
+    };
+    ctx.style_mut(|style| {
+        for role in typography::TypeRole::ALL {
+            style.text_styles.insert(role.text_style(), font_for(role));
+        }
+        // egui's built-in named styles, mapped to their closest M3 role.
+        style.text_styles.insert(egui::TextStyle::Heading, font_for(typography::TypeRole::HeadlineSmall));
+        style.text_styles.insert(egui::TextStyle::Body, font_for(typography::TypeRole::BodyMedium));
+        style.text_styles.insert(egui::TextStyle::Button, font_for(typography::TypeRole::LabelLarge));
+        style.text_styles.insert(egui::TextStyle::Small, font_for(typography::TypeRole::BodySmall));
+
+        style.spacing.item_spacing = spacing::ITEM_SPACING;
+        style.spacing.button_padding = spacing::button_padding(density);
+        style.spacing.window_margin = spacing::WINDOW_MARGIN;
+        style.spacing.menu_margin = spacing::MENU_MARGIN;
+        style.spacing.indent = spacing::INDENT;
+        style.spacing.interact_size = spacing::interact_size(density);
+        style.spacing.slider_width = spacing::SLIDER_WIDTH;
+        style.spacing.icon_width = 18.0;
+        style.spacing.icon_width_inner = 10.0;
+        style.spacing.icon_spacing = 8.0;
+
+        // M3 motion: medium2 (300ms) for layout changes, short4 (200ms) for fades.
+        style.animation_time = 0.2;
+    });
+}
+
+/// Apply the active theme, resolving [`ThemeMode::Auto`] with [`detect_os_theme`].
+///
+/// Convenience wrapper around [`apply_theme`] for the common case where the operating
+/// system preference should decide the mode: `apply_theme(ctx, None)` does not compile
+/// without a type annotation, because the detector closure type cannot be inferred.
+///
+/// # Example
+/// ```rust,no_run
+/// # let egui_ctx = egui::Context::default();
+/// use egui_material3::theme::apply_theme_auto;
+///
+/// apply_theme_auto(&egui_ctx);
+/// ```
+pub fn apply_theme_auto<C: ContextRef>(ctx: C) {
+    apply_theme(ctx, None::<fn() -> ThemeMode>);
 }
 
 // ============================================================================

@@ -300,7 +300,7 @@ impl<'a> MaterialActionSheet<'a> {
                     text_pos,
                     egui::Align2::LEFT_CENTER,
                     label,
-                    egui::FontId::proportional(14.0),
+                    crate::theme::typography::font_id(crate::theme::typography::TypeRole::LabelLarge),
                     text_color,
                 );
 
@@ -319,7 +319,8 @@ impl<'a> MaterialActionSheet<'a> {
 
                 // Hover effect
                 if button_response.hovered() && button.enabled {
-                    let hover_color = get_global_color("onSurface").linear_multiply(0.08);
+                    let hover_color = get_global_color("onSurface")
+                        .linear_multiply(crate::theme::state_layer::HOVER);
                     ui.painter()
                         .rect_filled(button_rect, CornerRadius::ZERO, hover_color);
                 }
@@ -331,7 +332,8 @@ impl<'a> MaterialActionSheet<'a> {
                     get_global_color("onSurface")
                 };
 
-                let font_id = egui::FontId::proportional(16.0);
+                let font_id =
+                    crate::theme::typography::font_id(crate::theme::typography::TypeRole::TitleMedium);
 
                 let text_pos = pos2(button_rect.min.x + 16.0, current_y + button_height / 2.0);
 

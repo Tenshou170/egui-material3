@@ -64,8 +64,16 @@ impl DrawerThemeData {
             elevation: Some(1.0),
             shadow_color: Some(Color32::TRANSPARENT),
             surface_tint_color: Some(Color32::TRANSPARENT),
-            shape: Some(CornerRadius::same(16)),
-            end_shape: Some(CornerRadius::same(16)),
+            shape: Some(CornerRadius::same(
+                crate::theme::component_radius(crate::theme::ShapeComponent::Drawer)
+                    .round()
+                    .clamp(0.0, 255.0) as u8,
+            )),
+            end_shape: Some(CornerRadius::same(
+                crate::theme::component_radius(crate::theme::ShapeComponent::Drawer)
+                    .round()
+                    .clamp(0.0, 255.0) as u8,
+            )),
             width: Some(360.0),
             clip_behavior: Some(true),
         }
@@ -175,7 +183,7 @@ impl DrawerHeader {
                 title_pos,
                 egui::Align2::LEFT_TOP,
                 title,
-                egui::FontId::proportional(22.0),
+                crate::theme::typography::font_id(crate::theme::typography::TypeRole::TitleLarge),
                 get_global_color("onSurface"),
             );
         }
@@ -186,7 +194,7 @@ impl DrawerHeader {
                 subtitle_pos,
                 egui::Align2::LEFT_TOP,
                 subtitle,
-                egui::FontId::proportional(14.0),
+                crate::theme::typography::font_id(crate::theme::typography::TypeRole::BodyMedium),
                 get_global_color("onSurfaceVariant"),
             );
         }
@@ -295,7 +303,11 @@ impl<'a> MaterialDrawer<'a> {
         let id = Id::new(format!("material_drawer_{:?}", variant));
         let theme = DrawerThemeData::material3_defaults();
         let width = theme.width.unwrap_or(360.0);
-        let corner_radius = theme.shape.unwrap_or(CornerRadius::same(16));
+        let corner_radius = theme.shape.unwrap_or(CornerRadius::same(
+            crate::theme::component_radius(crate::theme::ShapeComponent::Drawer)
+                .round()
+                .clamp(0.0, 255.0) as u8,
+        ));
         let elevation = theme.elevation;
         
         Self {
@@ -322,7 +334,11 @@ impl<'a> MaterialDrawer<'a> {
     pub fn new_with_id(variant: DrawerVariant, open: &'a mut bool, id: Id) -> Self {
         let theme = DrawerThemeData::material3_defaults();
         let width = theme.width.unwrap_or(360.0);
-        let corner_radius = theme.shape.unwrap_or(CornerRadius::same(16));
+        let corner_radius = theme.shape.unwrap_or(CornerRadius::same(
+            crate::theme::component_radius(crate::theme::ShapeComponent::Drawer)
+                .round()
+                .clamp(0.0, 255.0) as u8,
+        ));
         let elevation = theme.elevation;
         
         Self {
@@ -621,7 +637,7 @@ impl<'a> MaterialDrawer<'a> {
                 title_pos,
                 egui::Align2::LEFT_TOP,
                 title,
-                egui::FontId::proportional(22.0),
+                crate::theme::typography::font_id(crate::theme::typography::TypeRole::TitleLarge),
                 get_global_color("onSurfaceVariant"),
             );
 
@@ -631,7 +647,7 @@ impl<'a> MaterialDrawer<'a> {
                     subtitle_pos,
                     egui::Align2::LEFT_TOP,
                     subtitle,
-                    egui::FontId::proportional(14.0),
+                    crate::theme::typography::font_id(crate::theme::typography::TypeRole::BodyMedium),
                     get_global_color("onSurfaceVariant"),
                 );
             }
@@ -652,7 +668,7 @@ impl<'a> MaterialDrawer<'a> {
                         label_pos,
                         egui::Align2::LEFT_TOP,
                         label,
-                        egui::FontId::proportional(14.0),
+                        crate::theme::typography::font_id(crate::theme::typography::TypeRole::LabelLarge),
                         get_global_color("onSurfaceVariant"),
                     );
                     current_y += section_padding_bottom + 10.0;
@@ -797,7 +813,7 @@ impl<'a> MaterialDrawer<'a> {
             text_pos,
             egui::Align2::LEFT_CENTER,
             &item.text,
-            egui::FontId::proportional(14.0),
+            crate::theme::typography::font_id(crate::theme::typography::TypeRole::LabelLarge),
             text_color,
         );
 

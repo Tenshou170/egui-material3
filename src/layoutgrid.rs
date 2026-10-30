@@ -396,15 +396,26 @@ impl Widget for GridTileBar<'_> {
             if title.is_some() || subtitle.is_some() {
                 ui.vertical(|ui| {
                     ui.set_min_height(height);
-                    ui.add_space((height - if subtitle.is_some() { 40.0 } else { 20.0 }) / 2.0);
+                    let type_height = if subtitle.is_some() {
+                        crate::theme::typography::TypeRole::BodyLarge.line_height()
+                            + crate::theme::typography::TypeRole::BodyMedium.line_height()
+                    } else {
+                        crate::theme::typography::TypeRole::BodyLarge.line_height()
+                    };
+                    ui.add_space(((height - type_height) / 2.0).max(0.0));
 
+                    // M3 list item: BodyLarge title over a BodyMedium supporting line.
                     if let Some(title_text) = &title {
-                        ui.style_mut().override_text_style = Some(egui::TextStyle::Body);
+                        ui.style_mut().override_text_style = Some(
+                            crate::theme::typography::TypeRole::BodyLarge.text_style(),
+                        );
                         ui.label(egui::RichText::new(title_text).color(Color32::WHITE));
                     }
 
                     if let Some(subtitle_text) = &subtitle {
-                        ui.style_mut().override_text_style = Some(egui::TextStyle::Small);
+                        ui.style_mut().override_text_style = Some(
+                            crate::theme::typography::TypeRole::BodyMedium.text_style(),
+                        );
                         ui.label(egui::RichText::new(subtitle_text).color(Color32::WHITE));
                     }
                 });

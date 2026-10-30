@@ -37,7 +37,6 @@
 //! - **Disabled**: surface background, onSurface @ 12% outline, onSurface @ 38% content
 
 use crate::{get_global_color, material_symbol::material_symbol_text};
-use crate::theme::get_global_corner_radius;
 use egui::{
     ecolor::Color32,
     emath::NumExt,
@@ -367,7 +366,10 @@ impl<'a> MaterialButton<'a> {
     #[inline]
     pub fn small(mut self) -> Self {
         if let Some(text) = self.text {
-            self.text = Some(text.text_style(TextStyle::Body));
+            // M3 small buttons drop one step down the label scale.
+            self.text = Some(
+                text.text_style(crate::theme::typography::TypeRole::LabelMedium.text_style()),
+            );
         }
         self.small = true;
         self
@@ -538,36 +540,43 @@ impl Widget for MaterialButton<'_> {
         let on_surface = get_global_color("onSurface"); // Content on surface, disabled content @ 38%
         let outline = get_global_color("outline"); // Outlined button border
 
+        // M3 shapes: a 40dp button at the full shape radius reads as a pill.
+        let button_corner_radius = CornerRadius::same(
+            crate::theme::component_radius(crate::theme::ShapeComponent::Button)
+                .round()
+                .clamp(0.0, 255.0) as u8,
+        );
+
         // Material Design button defaults based on variant
         let (default_fill, default_stroke, default_corner_radius, _has_elevation) = match variant {
             MaterialButtonVariant::Filled => (
                 Some(primary),
                 Some(Stroke::NONE),
-                CornerRadius::from(get_global_corner_radius().map(|r| r as u8).unwrap_or(20)),
+                button_corner_radius,
                 false,
             ),
             MaterialButtonVariant::Outlined => (
                 Some(Color32::TRANSPARENT),
                 Some(Stroke::new(1.0_f32, outline)),
-                CornerRadius::from(get_global_corner_radius().map(|r| r as u8).unwrap_or(20)),
+                button_corner_radius,
                 false,
             ),
             MaterialButtonVariant::Text => (
                 Some(Color32::TRANSPARENT),
                 Some(Stroke::NONE),
-                CornerRadius::from(get_global_corner_radius().map(|r| r as u8).unwrap_or(20)),
+                button_corner_radius,
                 false,
             ),
             MaterialButtonVariant::Elevated => (
                 Some(surface_container_low),
                 Some(Stroke::NONE),
-                CornerRadius::from(get_global_corner_radius().map(|r| r as u8).unwrap_or(20)),
+                button_corner_radius,
                 true,
             ),
             MaterialButtonVariant::FilledTonal => (
                 Some(secondary_container),
                 Some(Stroke::NONE),
-                CornerRadius::from(get_global_corner_radius().map(|r| r as u8).unwrap_or(20)),
+                button_corner_radius,
                 false,
             ),
         };
@@ -646,7 +655,7 @@ impl Widget for MaterialButton<'_> {
         };
 
         let space_available_for_image = if let Some(_text) = &text {
-            let font_height = ui.text_style_height(&TextStyle::Body);
+            let font_height = ui.text_style_height(&TextStyle::Button);
             Vec2::splat(font_height)
         } else {
             let total_h_padding = button_padding_left + button_padding_right;
@@ -686,7 +695,7 @@ impl Widget for MaterialButton<'_> {
                 ui,
                 Some(TextWrapMode::Extend),
                 f32::INFINITY,
-                TextStyle::Body,
+                TextStyle::Button,
             )
         });
 
@@ -694,8 +703,9 @@ impl Widget for MaterialButton<'_> {
             text_wrap_width -= gap_before_shortcut_text + shortcut_galley.size().x;
         }
 
-        let galley =
-            text.map(|text| text.into_galley(ui, wrap_mode, text_wrap_width, TextStyle::Body));
+        let galley = text.map(|text| {
+            text.into_galley(ui, wrap_mode, text_wrap_width, TextStyle::Button)
+        });
 
         let mut desired_size = Vec2::ZERO;
 

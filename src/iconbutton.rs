@@ -37,7 +37,7 @@
 //! - **Circular (default)**: 50% corner radius (fully rounded)
 //! - **Rectangular**: 20% corner radius (rounded rectangle)
 
-use crate::{blend_state_layer, get_global_color, get_global_corner_radius};
+use crate::{blend_state_layer, get_global_color};
 use egui::{
     Align2, Color32, ColorImage, FontId, Rect, Response, Sense, Stroke, TextureHandle, TextureOptions, Ui, Vec2,
     Widget,
@@ -463,7 +463,10 @@ impl<'a> Widget for MaterialIconButton<'a> {
 
         // Calculate corner radius based on container style
         let corner_radius = if self.container {
-            get_global_corner_radius().unwrap_or(rect.height() * 0.2)
+            // M3 container icon buttons use the button shape role, capped at half the
+            // height so the container stays a pill rather than over-rounding.
+            crate::theme::component_radius(crate::theme::ShapeComponent::Button)
+                .min(rect.height() / 2.0)
         } else {
             // Circular container: full radius
             rect.height() / 2.0

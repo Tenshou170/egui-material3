@@ -19,8 +19,33 @@
 //! - **Disabled**: 38% opacity applied to text/icons (M3 disabled state)
 
 use crate::material_symbol::material_symbol_text;
-use crate::theme::get_global_color;
+use crate::theme::{
+    get_global_color,
+    spacing::{list_row_height, list_row_height_dense},
+    typography::TypeRole,
+};
 use egui::{self, Color32, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2, Widget};
+
+/// Font for a type role at painter level (no style context available).
+fn role_font(role: TypeRole) -> egui::FontId {
+    role.font_id()
+}
+
+/// M3 list row height: 56 / 72 / 88dp at standard density, 48 / 64 / 76dp when dense.
+fn tile_base_height(is_dense: bool, three_line: bool, two_line: bool) -> f32 {
+    let lines = if three_line {
+        3
+    } else if two_line {
+        2
+    } else {
+        1
+    };
+    if is_dense {
+        list_row_height_dense(lines)
+    } else {
+        list_row_height(lines)
+    }
+}
 
 /// Defines the title font used for ListTile descendants.
 ///
@@ -697,27 +722,11 @@ impl<'a> Widget for MaterialList<'a> {
             let density_adjustment = visual_density.base_size_adjustment().y;
             let is_dense = item.dense.unwrap_or(false);
 
-            let base_height = if item.is_three_line.unwrap_or(false)
-                || (item.overline_text.is_some() && item.secondary_text.is_some())
-            {
-                if is_dense {
-                    76.0
-                } else {
-                    88.0
-                }
-            } else if item.secondary_text.is_some() || item.overline_text.is_some() {
-                if is_dense {
-                    64.0
-                } else {
-                    72.0
-                }
-            } else {
-                if is_dense {
-                    48.0
-                } else {
-                    56.0
-                }
-            };
+            let base_height = tile_base_height(
+                is_dense,
+                item.is_three_line.unwrap_or(false),
+                item.secondary_text.is_some() || item.overline_text.is_some(),
+            );
 
             let item_height = item
                 .min_tile_height
@@ -776,27 +785,11 @@ impl<'a> Widget for MaterialList<'a> {
             let density_adjustment = visual_density.base_size_adjustment().y;
             let is_dense = item.dense.unwrap_or(false);
 
-            let base_height = if item.is_three_line.unwrap_or(false)
-                || (item.overline_text.is_some() && item.secondary_text.is_some())
-            {
-                if is_dense {
-                    76.0
-                } else {
-                    88.0
-                }
-            } else if item.secondary_text.is_some() || item.overline_text.is_some() {
-                if is_dense {
-                    64.0
-                } else {
-                    72.0
-                }
-            } else {
-                if is_dense {
-                    48.0
-                } else {
-                    56.0
-                }
-            };
+            let base_height = tile_base_height(
+                is_dense,
+                item.is_three_line.unwrap_or(false),
+                item.secondary_text.is_some() || item.overline_text.is_some(),
+            );
 
             let item_height = item
                 .min_tile_height
@@ -892,7 +885,8 @@ impl<'a> Widget for MaterialList<'a> {
                     icon_pos,
                     egui::Align2::CENTER_CENTER,
                     &icon_string,
-                    egui::FontId::proportional(20.0),
+                    // M3 list leading/trailing icons are 24dp.
+                    egui::FontId::proportional(24.0),
                     icon_color,
                 );
                 content_x += leading_width + horizontal_title_gap;
@@ -924,7 +918,7 @@ impl<'a> Widget for MaterialList<'a> {
                         overline_pos,
                         egui::Align2::LEFT_CENTER,
                         overline,
-                        egui::FontId::proportional(if is_dense { 10.0 } else { 11.0 }),
+                        role_font(TypeRole::LabelSmall),
                         on_surface_variant,
                     );
 
@@ -933,7 +927,7 @@ impl<'a> Widget for MaterialList<'a> {
                         primary_pos,
                         egui::Align2::LEFT_CENTER,
                         &item.primary_text,
-                        egui::FontId::proportional(if is_dense { 13.0 } else { 14.0 }),
+                        role_font(TypeRole::BodyLarge),
                         text_color,
                     );
 
@@ -942,7 +936,7 @@ impl<'a> Widget for MaterialList<'a> {
                         secondary_pos,
                         egui::Align2::LEFT_CENTER,
                         secondary,
-                        egui::FontId::proportional(if is_dense { 11.0 } else { 12.0 }),
+                        role_font(TypeRole::BodyMedium),
                         on_surface_variant,
                     );
                 }
@@ -956,7 +950,7 @@ impl<'a> Widget for MaterialList<'a> {
                         overline_pos,
                         egui::Align2::LEFT_CENTER,
                         overline,
-                        egui::FontId::proportional(if is_dense { 10.0 } else { 11.0 }),
+                        role_font(TypeRole::LabelSmall),
                         on_surface_variant,
                     );
 
@@ -965,7 +959,7 @@ impl<'a> Widget for MaterialList<'a> {
                         primary_pos,
                         egui::Align2::LEFT_CENTER,
                         &item.primary_text,
-                        egui::FontId::proportional(if is_dense { 13.0 } else { 14.0 }),
+                        role_font(TypeRole::BodyLarge),
                         text_color,
                     );
                 }
@@ -979,7 +973,7 @@ impl<'a> Widget for MaterialList<'a> {
                         primary_pos,
                         egui::Align2::LEFT_CENTER,
                         &item.primary_text,
-                        egui::FontId::proportional(if is_dense { 13.0 } else { 14.0 }),
+                        role_font(TypeRole::BodyLarge),
                         text_color,
                     );
 
@@ -988,7 +982,7 @@ impl<'a> Widget for MaterialList<'a> {
                         secondary_pos,
                         egui::Align2::LEFT_CENTER,
                         secondary,
-                        egui::FontId::proportional(if is_dense { 11.0 } else { 12.0 }),
+                        role_font(TypeRole::BodyMedium),
                         on_surface_variant,
                     );
                 }
@@ -1000,7 +994,7 @@ impl<'a> Widget for MaterialList<'a> {
                         text_pos,
                         egui::Align2::LEFT_CENTER,
                         &item.primary_text,
-                        egui::FontId::proportional(if is_dense { 13.0 } else { 14.0 }),
+                        role_font(TypeRole::BodyLarge),
                         text_color,
                     );
                 }
@@ -1032,7 +1026,8 @@ impl<'a> Widget for MaterialList<'a> {
                     icon_pos,
                     egui::Align2::CENTER_CENTER,
                     &icon_string,
-                    egui::FontId::proportional(20.0),
+                    // M3 list leading/trailing icons are 24dp.
+                    egui::FontId::proportional(24.0),
                     icon_color,
                 );
             }

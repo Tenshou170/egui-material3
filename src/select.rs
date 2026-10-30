@@ -566,10 +566,26 @@ impl<'a> Widget for MaterialSelect<'a> {
         // Draw floating label if present and should be shown
         if should_show_label {
             let label_text = self.label.as_ref().unwrap();
+            // M3 field labels:bodyLarge while resting, bodySmall once floated (the small
+            // variant drops one step further).
             let label_font = if should_float_label {
-                FontId::new(if self.small { 9.0_f32 } else { 11.0_f32 }, FontFamily::Proportional)
+                FontId::new(
+                    if self.small {
+                        crate::theme::typography::TypeRole::LabelSmall.size()
+                    } else {
+                        crate::theme::typography::TypeRole::BodySmall.size()
+                    },
+                    FontFamily::Proportional,
+                )
             } else {
-                FontId::new(if self.small { 13.0_f32 } else { 15.0_f32 }, FontFamily::Proportional)
+                FontId::new(
+                    if self.small {
+                        crate::theme::typography::TypeRole::BodyMedium.size()
+                    } else {
+                        crate::theme::typography::TypeRole::BodyLarge.size()
+                    },
+                    FontFamily::Proportional,
+                )
             };
             
             let label_color = if !self.enabled {
@@ -609,7 +625,14 @@ impl<'a> Widget for MaterialSelect<'a> {
         };
 
         // Use consistent font styling for select field
-        let select_font = FontId::new(if self.small { 13.0_f32 } else { 15.0_f32 }, FontFamily::Proportional);
+        let select_font = FontId::new(
+            if self.small {
+                crate::theme::typography::TypeRole::BodyMedium.size()
+            } else {
+                crate::theme::typography::TypeRole::BodyLarge.size()
+            },
+            FontFamily::Proportional,
+        );
         let text_y_offset = if should_show_label && should_float_label { if self.small { 6.0_f32 } else { 9.0_f32 } } else { 0.0 };
         let text_pos = Pos2::new(rect.min.x + 12.0, rect.center().y + text_y_offset);
 
@@ -703,8 +726,16 @@ impl<'a> Widget for MaterialSelect<'a> {
             let available_space_above = rect.min.y - viewport_rect.min.y - 4.0;
 
             let dropdown_padding = 8.0;
-            let item_min_height = 36.0_f32;
+            // MD3 menu rows are a full touch target (40dp desktop / 48dp touch).
+            // The old 36dp gate made the selected row read as a thin band and made
+            // the popup shorter than the trigger that opened it.
+            let item_min_height =
+                crate::theme::spacing::interact_size(crate::theme::get_global_density()).x;
             let item_vertical_padding = 8.0_f32;
+            // Rows are inset inside the menu panel and rounded, so a highlighted
+            // row follows the panel's corners instead of butting square edges
+            // against them.
+            let item_inset = 4.0_f32;
 
             // Pre-compute galleys for all options so we know their true heights.
             // This drives Area sizing and prevents clipping of wrapped text.
@@ -765,7 +796,15 @@ impl<'a> Widget for MaterialSelect<'a> {
                 rect.min.y - 4.0 - dropdown_height
             };
 
-            let menu_border_radius = self.border_radius.unwrap_or(6.0);
+            // Dropdowns are menu surfaces: they follow the M3 menu shape role (and the
+            // window rounding override), not a literal radius.
+            let menu_border_radius = self.border_radius.unwrap_or_else(|| {
+                crate::theme::component_radius(crate::theme::ShapeComponent::Menu)
+            });
+            // Item highlight: one step tighter than the panel so the inset row's
+            // corners stay parallel to the panel's. Collapses to 0 with square
+            // corners enabled.
+            let item_radius = (menu_border_radius - item_inset).clamp(0.0, 8.0);
 
             let dropdown_pos = Pos2::new(rect.min.x, dropdown_y);
             let dropdown_size = Vec2::new(menu_width, dropdown_height);
@@ -856,18 +895,23 @@ impl<'a> Widget for MaterialSelect<'a> {
                                             secondary_container
                                         } else if option_response.hovered() {
                                             ctx.request_repaint();
-                                            Color32::from_rgba_unmultiplied(on_surface.r(), on_surface.g(), on_surface.b(), 20)
+                                            Color32::from_rgba_unmultiplied(
+                                                on_surface.r(),
+                                                on_surface.g(),
+                                                on_surface.b(),
+                                                (crate::theme::state_layer::HOVER * 255.0) as u8,
+                                            )
                                         } else {
                                             Color32::TRANSPARENT
                                         };
 
                                         if option_bg_color != Color32::TRANSPARENT {
-                                            ui.painter().rect_filled(option_rect, 0.0, option_bg_color);
+                                            ui.painter().rect_filled(option_rect, item_radius, option_bg_color);
                                         }
 
                                         // Left-aligned text, vertically centered.
                                         let text_pos = Pos2::new(
-                                            option_rect.min.x + 16.0,
+                                            option_rect.min.x + text_x_pad - item_inset,
                                             option_rect.center().y - text_height / 2.0,
                                         );
                                         ui.painter().galley(text_pos, galley, text_color);
@@ -887,9 +931,10 @@ impl<'a> Widget for MaterialSelect<'a> {
                                 });
                         });
                     } else {
-                        // Draw options without scrolling — full-width rects flush
-                        // with the dropdown panel so highlights fill edge-to-edge.
-                        let mut current_y = dropdown_rect.min.y + 4.0;
+                        // Draw options without scrolling. Rows are inset from the
+                        // panel edge by `item_inset` so the selected row's fill sits
+                        // inside the panel's rounded corners.
+                        let mut current_y = dropdown_rect.min.y + item_inset;
 
                         for (option, pre) in options.iter().zip(prebuilt.iter()) {
                             let is_selected = *selected == Some(option.value);
@@ -910,10 +955,9 @@ impl<'a> Widget for MaterialSelect<'a> {
                             let text_height = galley.size().y;
                             let option_height = *pre;
 
-                            // Full-width rect — no inset so highlight is flush
                             let option_rect = Rect::from_min_size(
-                                Pos2::new(dropdown_rect.min.x, current_y),
-                                Vec2::new(menu_width, option_height),
+                                Pos2::new(dropdown_rect.min.x + item_inset, current_y),
+                                Vec2::new((menu_width - item_inset * 2.0).max(1.0), option_height),
                             );
 
                             let option_response = ui.interact(
@@ -926,13 +970,18 @@ impl<'a> Widget for MaterialSelect<'a> {
                                 secondary_container
                             } else if option_response.hovered() {
                                 ctx.request_repaint();
-                                Color32::from_rgba_unmultiplied(on_surface.r(), on_surface.g(), on_surface.b(), 20)
+                                Color32::from_rgba_unmultiplied(
+                                    on_surface.r(),
+                                    on_surface.g(),
+                                    on_surface.b(),
+                                    (crate::theme::state_layer::HOVER * 255.0) as u8,
+                                )
                             } else {
                                 Color32::TRANSPARENT
                             };
 
                             if option_bg_color != Color32::TRANSPARENT {
-                                ui.painter().rect_filled(option_rect, 0.0, option_bg_color);
+                                ui.painter().rect_filled(option_rect, item_radius, option_bg_color);
                             }
 
                             if option_response.clicked() {
@@ -947,9 +996,11 @@ impl<'a> Widget for MaterialSelect<'a> {
                                 response.mark_changed();
                             }
 
-                            // Paint text left-aligned, vertically centered.
+                            // Paint text left-aligned, vertically centered. The
+                            // 16dp text inset is measured from the panel edge, not
+                            // the inset row, so both code paths line up.
                             let text_pos = Pos2::new(
-                                option_rect.min.x + text_x_pad,
+                                option_rect.min.x + text_x_pad - item_inset,
                                 option_rect.center().y - text_height / 2.0,
                             );
                             ui.painter().galley(text_pos, galley, text_color);

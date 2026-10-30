@@ -42,7 +42,7 @@
 //! - **Icon size**: 18dp (in 24dp chip), 24dp (in 32dp chip, displayed at 20dp for balance)
 //! - **Touch target**: 48x48dp minimum
 
-use crate::{get_global_color, get_global_corner_radius, image_utils};
+use crate::{get_global_color, image_utils};
 use egui::{
     self, Color32, Pos2, Rect, Response, Sense, Stroke, TextureHandle, Ui, Vec2, Widget,
 };
@@ -467,7 +467,7 @@ impl<'a> Widget for MaterialChip<'a> {
         let corner_radius = if self.avatar {
             height / 2.0
         } else {
-            get_global_corner_radius().unwrap_or(8.0)
+            crate::theme::component_radius(crate::theme::ShapeComponent::Chip)
         };
 
         // Draw elevation shadow (before background)

@@ -132,6 +132,7 @@ impl NobelPrizesApp {
                     material_theme: Some(theme_file),
                     selected_colors: std::collections::HashMap::new(),
                     shape_corner_radius: None,
+                    ..Default::default()
                 };
                 update_global_theme(theme_context);
                 self.theme_loaded = true;

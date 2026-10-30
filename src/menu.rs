@@ -110,7 +110,9 @@ impl MenuStyle {
             padding: self.padding.unwrap_or(8.0),
             _min_width: self.min_width.unwrap_or(112.0),
             max_width: self.max_width.unwrap_or(280.0),
-            corner_radius: self.corner_radius.unwrap_or(4.0),
+            corner_radius: self.corner_radius.unwrap_or_else(|| {
+                crate::theme::component_radius(crate::theme::ShapeComponent::Menu)
+            }),
         }
     }
 }

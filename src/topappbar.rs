@@ -385,9 +385,15 @@ impl Widget for MaterialTopAppBar<'_> {
             // Medium expanded uses headlineSmall (24px)
             // Large expanded uses headlineMedium (28px)
             let title_font_size = match variant {
-                TopAppBarVariant::Regular | TopAppBarVariant::CenterAligned => 22.0,
-                TopAppBarVariant::Medium => 24.0,
-                TopAppBarVariant::Large => 28.0,
+                TopAppBarVariant::Regular | TopAppBarVariant::CenterAligned => {
+                    crate::theme::typography::TypeRole::TitleLarge.size()
+                }
+                TopAppBarVariant::Medium => {
+                    crate::theme::typography::TypeRole::HeadlineSmall.size()
+                }
+                TopAppBarVariant::Large => {
+                    crate::theme::typography::TypeRole::HeadlineMedium.size()
+                }
             };
 
             // M3 title padding from bottom:

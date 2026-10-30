@@ -99,13 +99,17 @@ impl<'a> Widget for MaterialTextField<'a> {
         let outline = get_global_color("outline");
 
         let cr_val = self.corner_radius.unwrap_or_else(|| {
-            // MD3: text fields always use 4dp — do NOT follow the global corner radius
-            CornerRadius::same(4)
+            // MD3 extraSmall shape role (4dp by spec).
+            CornerRadius::same(
+                crate::theme::component_radius(crate::theme::ShapeComponent::TextField)
+                    .round()
+                    .clamp(0.0, 255.0) as u8,
+            )
         });
         
         let actual_cr = if self.variant == TextFieldVariant::Filled {
-            // Filled: top corners only (4dp), square bottom
-            CornerRadius { nw: cr_val.nw.max(4), ne: cr_val.ne.max(4), sw: 0, se: 0 }
+            // Filled: rounded top corners, square bottom.
+            CornerRadius { nw: cr_val.nw, ne: cr_val.ne, sw: 0, se: 0 }
         } else {
             cr_val
         };
@@ -313,7 +317,11 @@ impl<'a, Num: Numeric> Widget for MaterialNumberField<'a, Num> {
         let outline = get_global_color("outline");
 
         let cr_val = self.corner_radius.unwrap_or_else(|| {
-            CornerRadius::same(4)
+            CornerRadius::same(
+                crate::theme::component_radius(crate::theme::ShapeComponent::TextField)
+                    .round()
+                    .clamp(0.0, 255.0) as u8,
+            )
         });
         
         let id = ui.next_auto_id();
