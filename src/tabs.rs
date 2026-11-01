@@ -324,8 +324,14 @@ impl<'a> Widget for MaterialTabs<'a> {
         } else {
             TAB_HEIGHT_TEXT_ONLY
         });
-        let label_font = FontId::proportional(LABEL_FONT_SIZE);
-        let icon_font = FontId::proportional(ICON_FONT_SIZE);
+        let is_compact = self.compact || tab_height < 60.0;
+        let (label_size, icon_size) = if is_compact {
+            (11.5, 16.0)
+        } else {
+            (LABEL_FONT_SIZE, ICON_FONT_SIZE)
+        };
+        let label_font = FontId::proportional(label_size);
+        let icon_font = FontId::proportional(icon_size);
 
         let available_width = self.explicit_width.unwrap_or_else(|| ui.available_width());
 
@@ -452,8 +458,8 @@ impl<'a> Widget for MaterialTabs<'a> {
             // Layout and draw tab content
             if let Some(icon) = &tab.icon {
                 // Icon + text layout: icon above label
-                let (icon_y, label_y) = if tab_height < 60.0 {
-                    (tab_rect.center().y - 7.0, tab_rect.center().y + 9.0)
+                let (icon_y, label_y) = if is_compact {
+                    (tab_rect.center().y - 6.5, tab_rect.center().y + 8.5)
                 } else {
                     (tab_rect.center().y - 10.0, tab_rect.center().y + 12.0)
                 };

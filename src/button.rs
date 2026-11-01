@@ -609,24 +609,26 @@ impl Widget for MaterialButton<'_> {
             None
         };
 
-        // Material Design button padding
-        // With leading icon: 16px left, 24px right
-        // With trailing icon: 24px left, 16px right
-        // With both icons: 16px left, 16px right
-        // No icons: 24px left, 24px right
-        // For small buttons: 4px (with icon) or 6px (without icon)
+        // Material Design button padding and dimensions (adapts to global Density)
+        let density = crate::theme::get_global_density();
+        let (default_pad_x, default_pad_y, default_min_h) = match density {
+            crate::theme::Density::Touch => (24.0, 10.0, 48.0),
+            crate::theme::Density::Desktop => (16.0, 8.0, 40.0),
+            crate::theme::Density::Compact => (10.0, 5.0, 32.0),
+        };
         let has_leading = leading_icon_galley.is_some() || leading_svg_texture.is_some() || image.is_some();
         let has_trailing = trailing_icon_galley.is_some() || trailing_svg_texture.is_some();
-        let padding_multiplier = if small { 0.25 } else { 1.0 };
-        let padding_left = if has_leading { 16.0 } else { 24.0 } * padding_multiplier;
-        let padding_right = if has_trailing { 16.0 } else { 24.0 } * padding_multiplier;
+        let padding_multiplier = if small { 0.5 } else { 1.0 };
+        let leading_pad_x = default_pad_x * 0.75;
+        let padding_left = if has_leading { leading_pad_x } else { default_pad_x } * padding_multiplier;
+        let padding_right = if has_trailing { leading_pad_x } else { default_pad_x } * padding_multiplier;
         let button_padding_left;
         let button_padding_right;
         let button_padding_y;
         if frame || variant == MaterialButtonVariant::Text {
             button_padding_left = padding_left;
             button_padding_right = padding_right;
-            button_padding_y = if small { 4.0 } else { 10.0 };
+            button_padding_y = if small { 4.0 } else { default_pad_y };
         } else {
             button_padding_left = 0.0;
             button_padding_right = 0.0;
@@ -634,7 +636,7 @@ impl Widget for MaterialButton<'_> {
         }
 
         // Material Design minimum button height
-        let min_button_height = if small { 32.0 } else { 40.0 };
+        let min_button_height = if small { 28.0 } else { default_min_h };
         let icon_spacing = if small { 4.0 } else { 8.0 }; // Material Design icon-to-text gap
         let svg_icon_size = 18.0; // Size for SVG icons
 

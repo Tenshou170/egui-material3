@@ -319,13 +319,16 @@ pub struct MaterialThemeContext {
 
 /// Material Design 3 interaction density.
 ///
-/// M3 defines a 40dp desktop density and a 48dp touch density; the difference is
-/// almost entirely the minimum interactive target size plus list/row padding.
+/// - `Desktop`: standard 40dp interactive target size and balanced padding.
+/// - `Touch`: larger 48dp minimum interactive target size for standard mobile applications.
+/// - `Compact`: space-efficient 32dp target size and compact padding for game overlays,
+///   toolbars, and dense embedded panes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Density {
     #[default]
     Desktop,
     Touch,
+    Compact,
 }
 
 impl std::fmt::Display for Density {
@@ -333,6 +336,7 @@ impl std::fmt::Display for Density {
         match self {
             Density::Desktop => write!(f, "Desktop"),
             Density::Touch => write!(f, "Touch"),
+            Density::Compact => write!(f, "Compact"),
         }
     }
 }
@@ -343,6 +347,7 @@ impl std::str::FromStr for Density {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "Touch" => Ok(Density::Touch),
+            "Compact" => Ok(Density::Compact),
             _ => Ok(Density::Desktop),
         }
     }
@@ -2020,20 +2025,39 @@ pub mod spacing {
         match density {
             Density::Desktop => egui::Vec2::new(40.0, 40.0),
             Density::Touch => egui::Vec2::new(48.0, 48.0),
+            Density::Compact => egui::Vec2::new(32.0, 32.0),
         }
     }
 
-    /// Inner padding for text buttons (M3: 24dp leading/trailing, 10dp vertical).
+    /// Inner padding for text buttons (M3: 24dp leading/trailing, 10dp vertical at touch density).
     pub const fn button_padding(density: Density) -> egui::Vec2 {
         match density {
-            Density::Desktop => egui::Vec2::new(16.0, 10.0),
+            Density::Desktop => egui::Vec2::new(16.0, 8.0),
             Density::Touch => egui::Vec2::new(24.0, 12.0),
+            Density::Compact => egui::Vec2::new(10.0, 5.0),
         }
     }
 
     /// Spacing between siblings in a layout.
+    pub const fn item_spacing(density: Density) -> egui::Vec2 {
+        match density {
+            Density::Desktop => egui::Vec2::new(8.0, 8.0),
+            Density::Touch => egui::Vec2::new(8.0, 10.0),
+            Density::Compact => egui::Vec2::new(6.0, 4.0),
+        }
+    }
+
+    /// Spacing between siblings in a layout (static default).
     pub const ITEM_SPACING: egui::Vec2 = egui::Vec2::new(8.0, 8.0);
     /// Margin around floating windows and dialogs.
+    pub const fn window_margin(density: Density) -> egui::Margin {
+        match density {
+            Density::Desktop => egui::Margin::same(16),
+            Density::Touch => egui::Margin::same(24),
+            Density::Compact => egui::Margin::same(10),
+        }
+    }
+    /// Margin around floating windows and dialogs (static default).
     pub const WINDOW_MARGIN: egui::Margin = egui::Margin::same(24);
     /// Margin around popup menus and dropdowns.
     pub const MENU_MARGIN: egui::Margin = egui::Margin::same(8);
@@ -2333,21 +2357,25 @@ where
             style.text_styles.insert(role.text_style(), font_for(role));
         }
         // egui's built-in named styles, mapped to their closest M3 role.
-        style.text_styles.insert(egui::TextStyle::Heading, font_for(typography::TypeRole::HeadlineSmall));
+        let heading_role = match density {
+            Density::Compact => typography::TypeRole::TitleLarge,
+            _ => typography::TypeRole::HeadlineSmall,
+        };
+        style.text_styles.insert(egui::TextStyle::Heading, font_for(heading_role));
         style.text_styles.insert(egui::TextStyle::Body, font_for(typography::TypeRole::BodyMedium));
         style.text_styles.insert(egui::TextStyle::Button, font_for(typography::TypeRole::LabelLarge));
         style.text_styles.insert(egui::TextStyle::Small, font_for(typography::TypeRole::BodySmall));
 
-        style.spacing.item_spacing = spacing::ITEM_SPACING;
+        style.spacing.item_spacing = spacing::item_spacing(density);
         style.spacing.button_padding = spacing::button_padding(density);
-        style.spacing.window_margin = spacing::WINDOW_MARGIN;
+        style.spacing.window_margin = spacing::window_margin(density);
         style.spacing.menu_margin = spacing::MENU_MARGIN;
         style.spacing.indent = spacing::INDENT;
         style.spacing.interact_size = spacing::interact_size(density);
         style.spacing.slider_width = spacing::SLIDER_WIDTH;
-        style.spacing.icon_width = 18.0;
-        style.spacing.icon_width_inner = 10.0;
-        style.spacing.icon_spacing = 8.0;
+        style.spacing.icon_width = if matches!(density, Density::Compact) { 16.0 } else { 18.0 };
+        style.spacing.icon_width_inner = if matches!(density, Density::Compact) { 8.0 } else { 10.0 };
+        style.spacing.icon_spacing = if matches!(density, Density::Compact) { 6.0 } else { 8.0 };
 
         // M3 motion: medium2 (300ms) for layout changes, short4 (200ms) for fades.
         style.animation_time = 0.2;
