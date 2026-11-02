@@ -529,10 +529,20 @@ impl<'a> Widget for MaterialSelect<'a> {
             }
         };
 
+        let field_border_radius = self.border_radius.unwrap_or_else(|| {
+            crate::theme::component_radius(crate::theme::ShapeComponent::Menu)
+        });
+
         // Draw select field background
         match self.variant {
             SelectVariant::Filled => {
-                    ui.painter().rect_filled(rect, 4.0, bg_color);
+                let filled_cr = egui::CornerRadius {
+                    nw: field_border_radius.round() as u8,
+                    ne: field_border_radius.round() as u8,
+                    sw: 0,
+                    se: 0,
+                };
+                ui.painter().rect_filled(rect, filled_cr, bg_color);
                 // Draw bottom border for filled variant
                 if !self.enabled {
                     ui.painter().line_segment(
@@ -553,10 +563,10 @@ impl<'a> Widget for MaterialSelect<'a> {
                 }
             }
             SelectVariant::Outlined => {
-                ui.painter().rect_filled(rect, 4.0, bg_color);
+                ui.painter().rect_filled(rect, field_border_radius, bg_color);
                 ui.painter().rect_stroke(
                     rect,
-                    4.0,
+                    field_border_radius,
                     Stroke::new(if open || response.hovered() { 2.0_f32 } else { 1.0_f32 }, border_color),
                     egui::epaint::StrokeKind::Outside,
                 );
@@ -725,17 +735,21 @@ impl<'a> Widget for MaterialSelect<'a> {
             let available_space_below = viewport_rect.max.y - rect.max.y - 4.0;
             let available_space_above = rect.min.y - viewport_rect.min.y - 4.0;
 
-            let dropdown_padding = 8.0;
-            // MD3 menu rows are a full touch target (40dp desktop / 48dp touch).
-            // The old 36dp gate made the selected row read as a thin band and made
-            // the popup shorter than the trigger that opened it.
             let item_min_height =
                 crate::theme::spacing::interact_size(crate::theme::get_global_density()).x;
             let item_vertical_padding = 8.0_f32;
-            // Rows are inset inside the menu panel and rounded, so a highlighted
-            // row follows the panel's corners instead of butting square edges
-            // against them.
             let item_inset = 4.0_f32;
+
+            // Dropdowns are menu surfaces: they follow the M3 menu shape role (and the
+            // window rounding override), not a literal radius.
+            let menu_border_radius = self.border_radius.unwrap_or_else(|| {
+                crate::theme::component_radius(crate::theme::ShapeComponent::Menu)
+            });
+
+            // Generous vertical padding inside menu container so options don't crowd the top/bottom curved borders.
+            let menu_v_padding = (menu_border_radius * 0.35).clamp(8.0, 16.0);
+            let dropdown_padding = menu_v_padding * 2.0;
+            let item_spacing = if menu_border_radius > 6.0 { 2.0_f32 } else { 0.0_f32 };
 
             // Pre-compute galleys for all options so we know their true heights.
             // This drives Area sizing and prevents clipping of wrapped text.
@@ -758,7 +772,9 @@ impl<'a> Widget for MaterialSelect<'a> {
                 (galley.size().y + item_vertical_padding).max(item_min_height)
             }).collect();
 
-            let total_content_h: f32 = prebuilt.iter().copied().sum::<f32>() + dropdown_padding;
+            let total_content_h: f32 = prebuilt.iter().copied().sum::<f32>()
+                + (self.options.len().saturating_sub(1) as f32 * item_spacing)
+                + dropdown_padding;
 
             // M3: show 4.5 items *worth of height* when scrolling is needed.
             // Use the average item height so the peek cap adapts to wrapped items.
@@ -796,15 +812,12 @@ impl<'a> Widget for MaterialSelect<'a> {
                 rect.min.y - 4.0 - dropdown_height
             };
 
-            // Dropdowns are menu surfaces: they follow the M3 menu shape role (and the
-            // window rounding override), not a literal radius.
-            let menu_border_radius = self.border_radius.unwrap_or_else(|| {
-                crate::theme::component_radius(crate::theme::ShapeComponent::Menu)
-            });
-            // Item highlight: one step tighter than the panel so the inset row's
-            // corners stay parallel to the panel's. Collapses to 0 with square
-            // corners enabled.
-            let item_radius = (menu_border_radius - item_inset).clamp(0.0, 8.0);
+            // Uniform symmetrical corner radius for all option highlights (both selected and hovered).
+            let item_radius = if menu_border_radius <= 0.0 {
+                0.0_f32
+            } else {
+                (menu_border_radius - item_inset).clamp(0.0, 14.0)
+            };
 
             let dropdown_pos = Pos2::new(rect.min.x, dropdown_y);
             let dropdown_size = Vec2::new(menu_width, dropdown_height);
@@ -855,13 +868,13 @@ impl<'a> Widget for MaterialSelect<'a> {
                     // Render options with scrolling support
                     if scroll_needed {
                         let scroll_area_rect = Rect::from_min_size(
-                            Pos2::new(dropdown_rect.min.x + 4.0, dropdown_rect.min.y + 4.0),
-                            Vec2::new(menu_width - 8.0, dropdown_height - 8.0),
+                            Pos2::new(dropdown_rect.min.x + item_inset, dropdown_rect.min.y + menu_v_padding),
+                            Vec2::new(menu_width - item_inset * 2.0, dropdown_height - dropdown_padding),
                         );
 
                         ui.scope_builder(egui::UiBuilder::new().max_rect(scroll_area_rect), |ui| {
                             egui::ScrollArea::vertical()
-                                .max_height(dropdown_height - 8.0)
+                                .max_height(dropdown_height - dropdown_padding)
                                 .scroll_bar_visibility(
                                     egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded,
                                 )
@@ -931,10 +944,8 @@ impl<'a> Widget for MaterialSelect<'a> {
                                 });
                         });
                     } else {
-                        // Draw options without scrolling. Rows are inset from the
-                        // panel edge by `item_inset` so the selected row's fill sits
-                        // inside the panel's rounded corners.
-                        let mut current_y = dropdown_rect.min.y + item_inset;
+                        // Draw options without scrolling with top/bottom vertical breathing room
+                        let mut current_y = dropdown_rect.min.y + menu_v_padding;
 
                         for (option, pre) in options.iter().zip(prebuilt.iter()) {
                             let is_selected = *selected == Some(option.value);
@@ -1005,7 +1016,7 @@ impl<'a> Widget for MaterialSelect<'a> {
                             );
                             ui.painter().galley(text_pos, galley, text_color);
 
-                            current_y += option_height;
+                            current_y += option_height + item_spacing;
                         }
                     }
                 });
