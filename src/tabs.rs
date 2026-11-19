@@ -26,8 +26,8 @@
 //! - **Min touch target**: 48x48dp
 
 use crate::get_global_color;
-use egui::{self, FontId, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
 use egui::epaint::CornerRadius;
+use egui::{self, Color32, FontId, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
 
 /// Material Design tabs component.
 ///
@@ -74,6 +74,8 @@ pub struct TabItem {
     label: String,
     /// Optional icon for the tab
     icon: Option<String>,
+    /// Optional custom color (background, text)
+    color: Option<(Color32, Color32)>,
 }
 
 /// Visual variants for tabs component.
@@ -167,6 +169,7 @@ impl<'a> MaterialTabs<'a> {
         self.tabs.push(TabItem {
             label: label.into(),
             icon: None,
+            color: None,
         });
         self
     }
@@ -190,6 +193,37 @@ impl<'a> MaterialTabs<'a> {
         self.tabs.push(TabItem {
             label: label.into(),
             icon: Some(icon.into()),
+            color: None,
+        });
+        self
+    }
+
+    /// Add a tab with custom background and text color.
+    ///
+    /// # Arguments
+    /// * `label` - Text label for the tab
+    /// * `bg_color` - Background color for the tab
+    /// * `text_color` - Text color for the tab
+    ///
+    /// # Example
+    /// ```rust
+    /// # egui::__run_test_ui(|ui| {
+    /// let mut tab_index = 0;
+    /// ui.add(MaterialTabs::primary(&mut tab_index)
+    ///     .tab_with_color("Red", egui::Color32::from_rgb(255, 0, 0), egui::Color32::WHITE)
+    ///     .tab_with_color("Blue", egui::Color32::from_rgb(0, 0, 255), egui::Color32::WHITE));
+    /// # });
+    /// ```
+    pub fn tab_with_color(
+        mut self,
+        label: impl Into<String>,
+        bg_color: Color32,
+        text_color: Color32,
+    ) -> Self {
+        self.tabs.push(TabItem {
+            label: label.into(),
+            icon: None,
+            color: Some((bg_color, text_color)),
         });
         self
     }
@@ -368,8 +402,8 @@ impl<'a> Widget for MaterialTabs<'a> {
 
         // Draw tab bar background based on variant.
         let bg_color = match self.variant {
-            TabVariant::Primary => surface_container,
-            TabVariant::Secondary => surface,
+            TabVariant::Primary => surface_container, // Filled container for primary tabs
+            TabVariant::Secondary => surface,         // Surface background for secondary tabs
         };
         // Always fill the full available_width (or explicit_width) even if
         // the allocated rect is slightly narrower due to layout context.
@@ -409,20 +443,29 @@ impl<'a> Widget for MaterialTabs<'a> {
             let is_selected = *self.selected == index;
             let is_hovered = tab_response.hovered();
 
-            // M3 label colors per variant
-            let text_color = match self.variant {
-                TabVariant::Primary => {
-                    if is_selected {
-                        primary
-                    } else {
-                        on_surface_variant
+            // Draw custom background if color is specified
+            if let Some((bg_color, _)) = tab.color {
+                ui.painter().rect_filled(tab_rect, 0.0, bg_color);
+            }
+
+            // M3 label colors per variant (or custom color if specified)
+            let text_color = if let Some((_, text_color)) = tab.color {
+                text_color
+            } else {
+                match self.variant {
+                    TabVariant::Primary => {
+                        if is_selected {
+                            primary
+                        } else {
+                            on_surface_variant
+                        }
                     }
-                }
-                TabVariant::Secondary => {
-                    if is_selected {
-                        on_surface
-                    } else {
-                        on_surface_variant
+                    TabVariant::Secondary => {
+                        if is_selected {
+                            on_surface
+                        } else {
+                            on_surface_variant
+                        }
                     }
                 }
             };
@@ -496,10 +539,22 @@ impl<'a> Widget for MaterialTabs<'a> {
             if is_selected && self.enabled {
                 match self.variant {
                     TabVariant::Primary => {
-                        // MD3: active indicator spans full tab width with top-rounded corners
+                        // M3: indicator width matches label (or full tab in compact mode), top-rounded corners
+                        let (indicator_x, indicator_w) = if is_compact {
+                            (tab_rect.min.x, tab_width)
+                        } else {
+                            let galley = ui.painter().layout_no_wrap(
+                                tab.label.clone(),
+                                label_font.clone(),
+                                text_color,
+                            );
+                            let label_width = (galley.size().x + 16.0).min(tab_width);
+                            let indicator_x = tab_rect.center().x - label_width / 2.0;
+                            (indicator_x, label_width)
+                        };
                         let indicator_rect = Rect::from_min_size(
-                            Pos2::new(tab_rect.min.x, tab_rect.max.y - PRIMARY_INDICATOR_HEIGHT),
-                            Vec2::new(tab_width, PRIMARY_INDICATOR_HEIGHT),
+                            Pos2::new(indicator_x, tab_rect.max.y - PRIMARY_INDICATOR_HEIGHT),
+                            Vec2::new(indicator_w, PRIMARY_INDICATOR_HEIGHT),
                         );
                         let rounding = CornerRadius {
                             nw: INDICATOR_TOP_ROUNDING as u8,
@@ -507,8 +562,7 @@ impl<'a> Widget for MaterialTabs<'a> {
                             sw: 0,
                             se: 0,
                         };
-                        ui.painter()
-                            .rect_filled(indicator_rect, rounding, primary);
+                        ui.painter().rect_filled(indicator_rect, rounding, primary);
                     }
                     TabVariant::Secondary => {
                         // M3: full tab width underline, primary color
@@ -516,8 +570,7 @@ impl<'a> Widget for MaterialTabs<'a> {
                             Pos2::new(tab_rect.min.x, tab_rect.max.y - SECONDARY_INDICATOR_HEIGHT),
                             Vec2::new(tab_width, SECONDARY_INDICATOR_HEIGHT),
                         );
-                        ui.painter()
-                            .rect_filled(indicator_rect, 0.0, primary);
+                        ui.painter().rect_filled(indicator_rect, 0.0, primary);
                     }
                 }
             }

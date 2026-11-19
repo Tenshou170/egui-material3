@@ -25,8 +25,7 @@ use egui::{self, Color32, FontId, Pos2, Rect, Response, Sense, Ui, Vec2, Widget}
 use std::ops::RangeInclusive;
 
 /// Interaction modes for sliders
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SliderInteraction {
     /// Allow both tapping and sliding (default)
     #[default]
@@ -39,10 +38,8 @@ pub enum SliderInteraction {
     SlideThumb,
 }
 
-
 /// Thumb shape variants
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum ThumbShape {
     /// Round thumb (classic Material Design)
     #[default]
@@ -50,7 +47,6 @@ pub enum ThumbShape {
     /// Handle thumb (Material Design 3 2024)
     Handle,
 }
-
 
 /// Range values for RangeSlider
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -334,7 +330,7 @@ impl<'a> Widget for MaterialSlider<'a> {
                 (secondary_value - self.range.start()) / (self.range.end() - self.range.start());
             let secondary_normalized = secondary_normalized.clamp(0.0, 1.0);
             let secondary_x = track_rect.min.x + secondary_normalized * track_rect.width();
-            
+
             if secondary_x > thumb_x {
                 let secondary_rect = Rect::from_min_size(
                     Pos2::new(thumb_x, track_rect.min.y),
@@ -348,7 +344,8 @@ impl<'a> Widget for MaterialSlider<'a> {
                         128,
                     )
                 });
-                ui.painter().rect_filled(secondary_rect, 2.0, secondary_color);
+                ui.painter()
+                    .rect_filled(secondary_rect, 2.0, secondary_color);
             }
         }
 
@@ -409,11 +406,7 @@ impl<'a> Widget for MaterialSlider<'a> {
             let indicator_rect = Rect::from_min_size(indicator_pos, indicator_size);
 
             // Draw indicator background
-            ui.painter().rect_filled(
-                indicator_rect,
-                4.0,
-                primary_color,
-            );
+            ui.painter().rect_filled(indicator_rect, 4.0, primary_color);
 
             // Draw indicator text
             ui.painter().galley(
@@ -679,19 +672,14 @@ impl<'a> Widget for MaterialRangeSlider<'a> {
                 };
                 let handle_height = 20.0 * scale;
 
-                let start_handle_rect = Rect::from_center_size(
-                    start_center,
-                    Vec2::new(handle_width, handle_height),
-                );
+                let start_handle_rect =
+                    Rect::from_center_size(start_center, Vec2::new(handle_width, handle_height));
                 ui.painter()
                     .rect_filled(start_handle_rect, 2.0, thumb_color);
 
-                let end_handle_rect = Rect::from_center_size(
-                    end_center,
-                    Vec2::new(handle_width, handle_height),
-                );
-                ui.painter()
-                    .rect_filled(end_handle_rect, 2.0, thumb_color);
+                let end_handle_rect =
+                    Rect::from_center_size(end_center, Vec2::new(handle_width, handle_height));
+                ui.painter().rect_filled(end_handle_rect, 2.0, thumb_color);
             }
         }
 

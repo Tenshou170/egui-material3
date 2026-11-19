@@ -3,9 +3,9 @@
 //! Provides async state management for egui UI.
 //! Uses async-std for native and wasm-bindgen-futures for WASM.
 
+use futures::lock::Mutex;
 use std::future::Future;
 use std::sync::Arc;
-use futures::lock::Mutex;
 
 /// State of an async operation
 #[derive(Clone, Debug)]
@@ -60,14 +60,15 @@ impl<T: Clone + Send + 'static, E: Clone + Send + 'static> Bind<T, E> {
         // Spawn the async task - platform specific
         #[cfg(not(target_family = "wasm"))]
         {
-            async_std::task::spawn(async move {
+            smol::spawn(async move {
                 let result = future.await;
                 let mut s = state.lock().await;
                 *s = match result {
                     Ok(data) => StateWithData::Finished(data),
                     Err(err) => StateWithData::Failed(err),
                 };
-            });
+            })
+            .detach();
         }
 
         #[cfg(target_family = "wasm")]
@@ -102,10 +103,10 @@ impl<T: Clone + Send + 'static, E: Clone + Send + 'static> Bind<T, E> {
 }
 
 /// Initialize async executor for egui integration
-/// async-std (native) uses a global executor that starts automatically.
+/// smol (native) uses a global executor that starts automatically.
 /// WASM uses wasm-bindgen-futures which also doesn't need initialization.
 /// This function is a no-op but kept for API compatibility.
 pub fn init_executor() {
-    // Executor starts automatically on both platforms
+    // smol executor starts automatically on both platforms
     // No explicit initialization needed
 }

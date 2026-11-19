@@ -1,16 +1,23 @@
 #![doc(hidden)]
 
-use crate::datatable::{RowAction, SortDirection as DataTableSortDirection};
-use crate::{data_table, list, list_item, tabs_secondary, DataTableCell, DataTableTheme, MaterialButton, MaterialCheckbox};
+use crate::datatable::{CompactMode, RowAction, SortDirection as DataTableSortDirection};
+use crate::{
+    data_table, dialog, tabs_secondary, DataTableCell, DataTableTheme, MaterialButton,
+    MaterialCheckbox, MaterialInput,
+};
 use eframe::egui::{self, Color32, Id, Ui, Window};
+use egui_material3::{ListItem, MaterialList};
+use serde::Serialize;
 use std::collections::{HashMap, HashSet};
+use std::error::Error;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 struct TableRow {
     product: String,
     category: String,
     price: String,
     stock: String,
+    #[serde(skip)]
     _selected: bool,
 }
 
@@ -48,6 +55,15 @@ pub struct DataTableWindow {
     sort_direction: SortDirection,
     // Track selection state for drawer table
     drawer_selection: Vec<bool>,
+    // Add row form inputs
+    new_product: String,
+    new_category: String,
+    new_price: String,
+    new_stock: String,
+    // Status message
+    status_message: String,
+    // Add row dialog state
+    add_row_dialog_open: bool,
 }
 
 impl Default for DataTableWindow {
@@ -104,6 +120,12 @@ impl Default for DataTableWindow {
             sort_column: None,
             sort_direction: SortDirection::Ascending,
             drawer_selection: vec![false; 4], // 4 rows in the drawer table
+            new_product: String::new(),
+            new_category: String::new(),
+            new_price: String::new(),
+            new_stock: String::new(),
+            status_message: String::new(),
+            add_row_dialog_open: false,
         }
     }
 }
@@ -133,6 +155,111 @@ impl DataTableWindow {
             open = false;
         }
         self.open = open;
+
+        // Add Row Dialog
+        self.render_add_row_dialog(ctx);
+    }
+
+    #[cfg(feature = "spreadsheet")]
+    fn export_to_csv(&self, file_path: &str) -> Result<(), Box<dyn Error>> {
+        let mut writer = csv::Writer::from_path(file_path)?;
+        for row in &self.interactive_rows {
+            writer.serialize(row)?;
+        }
+        writer.flush()?;
+        Ok(())
+    }
+
+    #[cfg(not(feature = "spreadsheet"))]
+    fn export_to_csv(&self, _file_path: &str) -> Result<(), Box<dyn Error>> {
+        Err("CSV export requires the 'spreadsheet' feature".into())
+    }
+
+    fn render_add_row_dialog(&mut self, ctx: &egui::Context) {
+        if self.add_row_dialog_open {
+            dialog(
+                "add_row_dialog",
+                "Add New Row",
+                &mut self.add_row_dialog_open,
+            )
+            .max_width(500.0)
+            .content(|ui, open| {
+                ui.vertical(|ui| {
+                    // Check if Product field is empty for error state
+                    let is_product_error = !self.status_message.is_empty()
+                        && self.status_message.contains("cannot be empty");
+
+                    ui.add(
+                        MaterialInput::filled(&mut self.new_product)
+                            .label("Product")
+                            .error_text("Product cannot be empty")
+                            .is_error(is_product_error),
+                    );
+                    ui.add_space(10.0);
+
+                    ui.add(
+                        MaterialInput::filled(&mut self.new_category)
+                            .label("Category")
+                            .helper_text("Optional"),
+                    );
+                    ui.add_space(10.0);
+
+                    ui.add(
+                        MaterialInput::filled(&mut self.new_price)
+                            .label("Price")
+                            .hint("e.g., $99"),
+                    );
+                    ui.add_space(10.0);
+
+                    ui.add(
+                        MaterialInput::filled(&mut self.new_stock)
+                            .label("Stock")
+                            .hint("Quantity available"),
+                    );
+
+                    // Manual button handling in content
+                    ui.add_space(16.0);
+                    ui.horizontal(|ui| {
+                        if ui.add(MaterialButton::text("Cancel")).clicked() {
+                            *open = false;
+                            self.status_message.clear();
+                        }
+
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            if ui.add(MaterialButton::filled("Save")).clicked() {
+                                // Validate before saving
+                                if !self.new_product.trim().is_empty() {
+                                    let new_row = TableRow {
+                                        product: self.new_product.trim().to_string(),
+                                        category: self.new_category.trim().to_string(),
+                                        price: self.new_price.trim().to_string(),
+                                        stock: self.new_stock.trim().to_string(),
+                                        _selected: false,
+                                    };
+                                    self.interactive_rows.push(new_row);
+                                    self.interactive_selection.push(false);
+                                    // Clear inputs
+                                    self.new_product.clear();
+                                    self.new_category.clear();
+                                    self.new_price.clear();
+                                    self.new_stock.clear();
+                                    self.status_message = "Row added.".to_string();
+                                    *open = false;
+                                } else {
+                                    self.status_message = "Product cannot be empty.".to_string();
+                                }
+                            }
+                        });
+                    });
+                });
+            })
+            .show(ctx);
+        } else {
+            // Clear validation when dialog is closed
+            if self.status_message.contains("cannot be empty") {
+                self.status_message.clear();
+            }
+        }
     }
 
     fn render_controls(&mut self, ui: &mut Ui) {
@@ -230,9 +357,9 @@ impl DataTableWindow {
             ui.add(basic_table);
 
             ui.add_space(20.0);
-            
+
             ui.heading("Data Table with Sortable Columns");
-            
+
             let sortable_table = data_table()
                 .id(Id::new("sortable_data_table"))
                 .sortable_column("Signal name", 200.0, false)
@@ -282,13 +409,13 @@ impl DataTableWindow {
                        .cell("Angelina Cheng")
                        .id("sortable_row_3")
                 });
-                
+
             ui.add(sortable_table);
 
             ui.add_space(20.0);
-            
+
             ui.heading("Compact Data Table");
-            
+
             let compact_table = data_table()
                 .id(Id::new("compact_data_table"))
                 .column("ID", 60.0, true)
@@ -320,40 +447,30 @@ impl DataTableWindow {
             ui.add(compact_table);
 
             ui.add_space(20.0);
-        
+
         ui.heading("Interactive Data Table Demo");
-        
+
         ui.horizontal(|ui| {
             if ui.add(MaterialButton::filled("Add Row")).clicked() {
-                // Add a new row with sample data
-                let new_row = TableRow {
-                    product: format!("Product {}", self.interactive_rows.len() + 1),
-                    category: "New Category".to_string(),
-                    price: "$99".to_string(),
-                    stock: "10".to_string(),
-                    _selected: false,
-                };
-                self.interactive_rows.push(new_row);
-                self.interactive_selection.push(false);
-                println!("Added new row");
+                self.add_row_dialog_open = true;
             }
-            
+
             if ui.add(MaterialButton::outlined("Delete Selected")).clicked() {
                 // Remove selected rows based on our tracked selection
                 let selected_count = self.interactive_selection.iter().filter(|&&sel| sel).count();
-                
+
                 if selected_count > 0 {
                     // Create new vectors without selected items
                     let mut new_rows = Vec::new();
                     let mut new_selection = Vec::new();
-                    
+
                     for (_idx, (row, &selected)) in self.interactive_rows.iter().zip(self.interactive_selection.iter()).enumerate() {
                         if !selected {
                             new_rows.push(row.clone());
                             new_selection.push(false);
                         }
                     }
-                    
+
                     self.interactive_rows = new_rows;
                     self.interactive_selection = new_selection;
                     self.editing_rows.clear(); // Cancel any ongoing edits
@@ -362,24 +479,21 @@ impl DataTableWindow {
                     println!("No rows selected for deletion");
                 }
             }
-            
-            if ui.add(MaterialButton::text("Export")).clicked() {
-                // Export data (in real implementation, this could save to CSV, etc.)
-                let export_data: Vec<String> = self.interactive_rows
-                    .iter()
-                    .map(|row| format!("{},{},{},{}", row.product, row.category, row.price, row.stock))
-                    .collect();
-                
-                println!("Exported data:");
-                println!("Product,Category,Price,Stock");
-                for line in export_data {
-                    println!("{}", line);
+
+            if ui.add(MaterialButton::text("Export to CSV")).clicked() {
+                match self.export_to_csv("exported_data.csv") {
+                    Ok(_) => self.status_message = "Saved to exported_data.csv".to_string(),
+                    Err(e) => self.status_message = format!("Export failed: {}", e),
                 }
+            }
+
+            if !self.status_message.is_empty() {
+                ui.label(&self.status_message);
             }
         });
 
         ui.add_space(10.0);
-        
+
         // The data table will now handle sorting internally, but we keep our local sorting for reference
         let sorted_rows = &self.interactive_rows; // Use reference to original data
 
@@ -396,21 +510,21 @@ impl DataTableWindow {
         // Add rows dynamically from our data
         for (idx, row) in sorted_rows.iter().enumerate() {
             let original_idx = idx; // Use direct index since sorting is handled by the data table
-            
+
             let is_selected = self.interactive_selection.get(original_idx).copied().unwrap_or(false);
-            
+
             // Check if this row is being edited
             let is_editing = self.editing_rows.contains(&original_idx);
-            
+
             // Create cell content - use actual values, let the data table handle edit mode rendering
             let (product_text, category_text, price_text, stock_text, actions_text) = (
-                row.product.clone(), 
-                row.category.clone(), 
-                row.price.clone(), 
+                row.product.clone(),
+                row.category.clone(),
+                row.price.clone(),
                 row.stock.clone(),
                 if is_editing { "Submit | Cancel".to_string() } else { "Edit | Delete".to_string() }
             );
-            
+
             interactive_table = interactive_table.row(|table_row| {
                 let mut row_builder = table_row
                     .cell(&product_text)
@@ -419,24 +533,24 @@ impl DataTableWindow {
                     .cell(&stock_text)
                     .cell(&actions_text)  // Add actions cell
                     .id(format!("interactive_table_row_{}", original_idx));
-                
+
                 if is_selected {
                     row_builder = row_builder.selected(true);
                 }
-                
+
                 row_builder
             });
         }
 
         // Set external editing state for the data table to use
         ui.memory_mut(|mem| {
-            mem.data.insert_temp(Id::new("interactive_data_table").with("external_edit_state"), 
+            mem.data.insert_temp(Id::new("interactive_data_table").with("external_edit_state"),
                 (self.editing_rows.clone(), self.edit_data.clone()));
         });
-        
+
         // Show the table and get the selection state back
         let table_response = interactive_table.show(ui);
-        
+
         // Retrieve updated editing state from the data table
         if let Some((updated_editing_rows, updated_edit_data)) = ui.memory(|mem| {
             mem.data.get_temp::<(HashSet<usize>, HashMap<usize, Vec<String>>)>(Id::new("interactive_data_table").with("external_edit_state"))
@@ -444,7 +558,7 @@ impl DataTableWindow {
             self.editing_rows = updated_editing_rows;
             self.edit_data = updated_edit_data;
         }
-        
+
         // Process row actions from the data table
         for action in &table_response.row_actions {
             match action {
@@ -492,12 +606,12 @@ impl DataTableWindow {
                         if self.interactive_selection.len() > *row_idx {
                             self.interactive_selection.remove(*row_idx);
                         }
-                        
+
                         // Update editing state - remove any references to this row
                         // and adjust indices for rows that come after
                         let mut new_editing_rows = HashSet::new();
                         let mut new_edit_data = HashMap::new();
-                        
+
                         for (&editing_idx, data) in &self.edit_data {
                             if editing_idx < *row_idx {
                                 // Keep rows before the deleted one
@@ -510,7 +624,7 @@ impl DataTableWindow {
                             }
                             // Skip the deleted row (editing_idx == *row_idx)
                         }
-                        
+
                         self.editing_rows = new_editing_rows;
                         self.edit_data = new_edit_data;
                         println!("Deleted row {}", row_idx);
@@ -518,10 +632,10 @@ impl DataTableWindow {
                 },
             }
         }
-        
+
         // Get current sort state from the data table response
         let (current_sort_col, current_sort_dir) = table_response.sort_state;
-        
+
         // Update our local sort state to match the data table's internal state
         if let Some(sort_col_idx) = current_sort_col {
             let new_sort_column = match sort_col_idx {
@@ -539,7 +653,7 @@ impl DataTableWindow {
         } else {
             self.sort_column = None;
         }
-        
+
         // Sync the selection state back to our window state
         if table_response.selected_rows.len() == self.interactive_selection.len() {
             self.interactive_selection = table_response.selected_rows;
@@ -556,7 +670,7 @@ impl DataTableWindow {
         ui.add_space(20.0);
         ui.separator();
         ui.heading("Text Wrapping Example");
-        
+
         let long_text_table = data_table()
             .id(Id::new("long_text_table"))
             .column("Short", 80.0, false)
@@ -578,9 +692,9 @@ impl DataTableWindow {
                    .cell("Short text")
                    .cell("75")
             });
-            
+
         ui.add(long_text_table);
-        
+
         // Display current sorting state
         ui.add_space(10.0);
         ui.horizontal(|ui| {
@@ -588,7 +702,7 @@ impl DataTableWindow {
             if let Some(col) = &self.sort_column {
                 let col_name = match col {
                     SortColumn::Product => "Product",
-                    SortColumn::Category => "Category", 
+                    SortColumn::Category => "Category",
                     SortColumn::Price => "Price",
                     SortColumn::Stock => "Stock",
                 };
@@ -601,13 +715,13 @@ impl DataTableWindow {
                 ui.label("None");
             }
         });
-        
+
         // New Feature Examples
         ui.add_space(20.0);
         ui.separator();
         ui.heading("Themed Data Table");
         ui.label("Custom theme override with specific colors");
-        
+
         let custom_theme = DataTableTheme {
             heading_row_color: Some(Color32::from_rgb(100, 150, 200)),
             heading_row_height: Some(64.0),
@@ -617,7 +731,7 @@ impl DataTableWindow {
             selected_row_color: Some(Color32::from_rgb(200, 220, 240)),
             ..Default::default()
         };
-        
+
         let themed_table = data_table()
             .id(Id::new("themed_table"))
             .column("Name", 150.0, false)
@@ -634,21 +748,21 @@ impl DataTableWindow {
             .row(|row| {
                 row.cell("Gamma").cell("75").cell("Complete")
             });
-        
+
         ui.add(themed_table);
-        
+
         ui.add_space(20.0);
         ui.separator();
         ui.heading("Data Table with Tooltips");
         ui.label("Hover over column headers to see tooltips");
-        
+
         // Create a custom table with tooltip columns by manually building the table
         // Since we can't access private fields, we'll use a workaround with helper function
         let mut tooltip_rows = Vec::new();
         tooltip_rows.push(vec!["001", "Laptop Pro", "$1299", "15"]);
         tooltip_rows.push(vec!["002", "Mouse Wireless", "$29", "150"]);
         tooltip_rows.push(vec!["003", "Keyboard Mechanical", "$89", "45"]);
-        
+
         // For now, create a basic table (full tooltip support requires API enhancement)
         let tooltip_table = data_table()
             .id(Id::new("tooltip_table"))
@@ -659,15 +773,15 @@ impl DataTableWindow {
             .row(|row| row.cell("001").cell("Laptop Pro").cell("$1299").cell("15"))
             .row(|row| row.cell("002").cell("Mouse Wireless").cell("$29").cell("150"))
             .row(|row| row.cell("003").cell("Keyboard Mechanical").cell("$89").cell("45"));
-        
+
         ui.add(tooltip_table);
         ui.label("Note: Tooltip feature is available via DataTableColumn struct but requires builder pattern enhancement");
-        
+
         ui.add_space(20.0);
         ui.separator();
         ui.heading("Placeholder Cells & Edit Icons");
         ui.label("Dimmed placeholder text and edit indicators");
-        
+
         let placeholder_table = data_table()
             .id(Id::new("placeholder_table"))
             .column("Field", 120.0, false)
@@ -688,14 +802,14 @@ impl DataTableWindow {
                    .custom_cell(DataTableCell::text("Not provided").placeholder(true))
                    .cell("Optional field")
             });
-        
+
         ui.add(placeholder_table);
-        
+
         ui.add_space(20.0);
         ui.separator();
         ui.heading("Custom Row Colors");
         ui.label("Per-row color overrides for status highlighting");
-        
+
         let color_table = data_table()
             .id(Id::new("color_table"))
             .column("Task", 180.0, false)
@@ -725,14 +839,14 @@ impl DataTableWindow {
                    .cell("Low")
                    // No custom color, uses default
             });
-        
+
         ui.add(color_table);
-        
+
         ui.add_space(20.0);
         ui.separator();
         ui.heading("Custom Row Height");
         ui.label("Using default_row_height() to set custom row heights");
-        
+
         ui.label("Compact (30px rows):");
         let compact_height_table = data_table()
             .id(Id::new("compact_height_table"))
@@ -748,9 +862,9 @@ impl DataTableWindow {
             .row(|row| {
                 row.cell("Compact C").cell("300")
             });
-        
+
         ui.add(compact_height_table);
-        
+
         ui.add_space(10.0);
         ui.label("Standard (52px rows - default):");
         let standard_height_table = data_table()
@@ -766,9 +880,9 @@ impl DataTableWindow {
             .row(|row| {
                 row.cell("Standard C").cell("300")
             });
-        
+
         ui.add(standard_height_table);
-        
+
         ui.add_space(10.0);
         ui.label("Spacious (80px rows):");
         let spacious_height_table = data_table()
@@ -785,14 +899,14 @@ impl DataTableWindow {
             .row(|row| {
                 row.cell("Spacious C").cell("300")
             });
-        
+
         ui.add(spacious_height_table);
-        
+
         ui.add_space(20.0);
         ui.separator();
         ui.heading("Auto Row Height by Content");
         ui.label("Rows automatically adjust height based on their content length");
-        
+
         let auto_height_table = data_table()
             .id(Id::new("auto_height_table"))
             .column("Category", 100.0, false)
@@ -825,20 +939,20 @@ impl DataTableWindow {
                    .cell("Some rows have more content than others, and the auto height feature ensures each row is exactly as tall as it needs to be - no more, no less.")
                    .cell("Pending")
             });
-        
+
         ui.add(auto_height_table);
-        
+
         ui.add_space(10.0);
         ui.label("Notice how each row has a different height based on its content length!");
-        
+
         ui.add_space(20.0);
         ui.separator();
         ui.heading("Show/Hide Checkbox Column");
         ui.label("Selection enabled but checkbox column hidden");
-        
+
         let mut no_checkbox_theme = DataTableTheme::default();
         no_checkbox_theme.show_checkbox_column = false;
-        
+
         let no_checkbox_table = data_table()
             .id(Id::new("no_checkbox_table"))
             .column("Item", 150.0, false)
@@ -854,11 +968,123 @@ impl DataTableWindow {
             .row(|row| {
                 row.cell("Item C").cell("300")
             });
-        
+
         ui.add(no_checkbox_table);
 
         ui.add_space(20.0);
         ui.label("Note: Rows are selected, but checkboxes are hidden per theme setting");
+
+        ui.add_space(20.0);
+        ui.separator();
+        ui.heading("Responsive Design: Narrow Tables");
+        ui.label("Tables automatically scale fonts and padding based on width");
+        ui.add_space(10.0);
+
+        ui.label("Very Narrow Table (< 400px): 12px fonts, 32px padding, 40px header");
+        let very_narrow_table = data_table()
+            .id(Id::new("very_narrow_responsive"))
+            .column("ID", 50.0, true)
+            .column("Name", 90.0, false)
+            .column("Val", 60.0, true)
+            .row(|row| row.cell("1").cell("Alpha").cell("99"))
+            .row(|row| row.cell("2").cell("Beta").cell("150"))
+            .row(|row| row.cell("3").cell("Gamma").cell("75"))
+            .row(|row| row.cell("4").cell("Delta").cell("200"));
+
+        ui.add(very_narrow_table);
+
+        ui.add_space(15.0);
+        ui.label("Compact Table (400-500px): 14px fonts, 40px padding, 48px header");
+        let compact_table = data_table()
+            .id(Id::new("compact_responsive"))
+            .column("Product", 110.0, false)
+            .column("Category", 100.0, false)
+            .column("Price", 80.0, true)
+            .allow_selection(true)
+            .row(|row| row.cell("Laptop").cell("Electronics").cell("$999"))
+            .row(|row| row.cell("Mouse").cell("Accessories").cell("$29"))
+            .row(|row| row.cell("Cable").cell("Accessories").cell("$12"));
+
+        ui.add(compact_table);
+
+        ui.add_space(15.0);
+        ui.label("Note: Wider tables (≥ 500px) use standard 16px fonts, 48px padding, 56px header");
+
+        ui.add_space(20.0);
+        ui.separator();
+        ui.heading("Compact Mode Override");
+        ui.label("Force narrow styling on a wide table using .compact_mode()");
+        ui.add_space(10.0);
+
+        ui.label("Wide table (610px+) with ForceNarrow mode:");
+        let wide_forced_narrow = data_table()
+            .id(Id::new("wide_forced_narrow"))
+            .compact_mode(CompactMode::ForceNarrow) // Force narrow despite wide width
+            .column("Product Name", 180.0, false)
+            .column("Category", 150.0, false)
+            .column("Price", 100.0, true)
+            .column("Stock", 80.0, true)
+            .column("Status", 100.0, false)
+            .row(|row| {
+                row.cell("Gaming Laptop Pro")
+                    .cell("Electronics")
+                    .cell("$1,999")
+                    .cell("15")
+                    .cell("In Stock")
+            })
+            .row(|row| {
+                row.cell("Wireless Mouse RGB")
+                    .cell("Accessories")
+                    .cell("$49")
+                    .cell("200")
+                    .cell("Available")
+            })
+            .row(|row| {
+                row.cell("Mechanical Keyboard")
+                    .cell("Accessories")
+                    .cell("$129")
+                    .cell("45")
+                    .cell("Low Stock")
+            });
+
+        ui.add(wide_forced_narrow);
+
+        ui.add_space(10.0);
+        ui.label("Note: Table is 610px wide but uses narrow styling (12px fonts, 32px padding, 40px header)");
+
+        ui.add_space(15.0);
+        ui.label("Wide table (550px+) with ForceCompact mode:");
+        let wide_forced_compact = data_table()
+            .id(Id::new("wide_forced_compact"))
+            .compact_mode(CompactMode::ForceCompact)
+            .column("Item", 150.0, false)
+            .column("Description", 200.0, false)
+            .column("Value", 100.0, true)
+            .column("Status", 100.0, false)
+            .row(|row| row.cell("Alpha").cell("First item").cell("100").cell("Active"))
+            .row(|row| row.cell("Beta").cell("Second item").cell("250").cell("Pending"))
+            .row(|row| row.cell("Gamma").cell("Third item").cell("500").cell("Complete"));
+
+        ui.add(wide_forced_compact);
+        ui.add_space(5.0);
+        ui.label("Note: Uses compact styling (14px fonts, 40px padding, 48px header)");
+
+        ui.add_space(15.0);
+        ui.label("Comparison: Same wide table with Auto mode (default):");
+        let wide_auto = data_table()
+            .id(Id::new("wide_auto"))
+            .compact_mode(CompactMode::Auto) // Explicit Auto (same as default)
+            .column("Item", 150.0, false)
+            .column("Description", 200.0, false)
+            .column("Value", 100.0, true)
+            .column("Status", 100.0, false)
+            .row(|row| row.cell("Alpha").cell("First item").cell("100").cell("Active"))
+            .row(|row| row.cell("Beta").cell("Second item").cell("250").cell("Pending"))
+            .row(|row| row.cell("Gamma").cell("Third item").cell("500").cell("Complete"));
+
+        ui.add(wide_auto);
+        ui.add_space(5.0);
+        ui.label("Note: Uses wide styling (16px fonts, 48px padding, 56px header) - automatic detection");
 
         ui.add_space(20.0);
         ui.separator();
@@ -936,6 +1162,8 @@ impl DataTableWindow {
         ui.separator();
         ui.heading("Mixed Drawer Content");
         ui.label("Each row has different controls in its drawer");
+        ui.label("Note: Nested tables automatically use responsive sizing for better readability");
+        ui.add_space(5.0);
 
         let mixed_drawer_table = data_table()
             .id(Id::new("mixed_drawer_table"))
@@ -977,16 +1205,16 @@ impl DataTableWindow {
                    .cell("Ultra-Narrow List")
                    .drawer(|ui| {
                        ui.add_space(4.0);
-                       use crate::{list, list_item};
-                       let ultra_list = list()
+                       use egui_material3::{MaterialList, ListItem};
+                       let ultra_list = MaterialList::new()
                            .id("drawer_ultra_list")
-                           .item(list_item("Home").leading_icon("home".to_string())
+                           .item(ListItem::new("Home").leading_icon("home".to_string())
                                .min_leading_width(28.0).horizontal_title_gap(4.0)
                                .min_vertical_padding(4.0).min_tile_height(36.0))
-                           .item(list_item("Work").leading_icon("work".to_string())
+                           .item(ListItem::new("Work").leading_icon("work".to_string())
                                .min_leading_width(28.0).horizontal_title_gap(4.0)
                                .min_vertical_padding(4.0).min_tile_height(36.0))
-                           .item(list_item("Profile").leading_icon("person".to_string())
+                           .item(ListItem::new("Profile").leading_icon("person".to_string())
                                .min_leading_width(28.0).horizontal_title_gap(4.0)
                                .min_vertical_padding(4.0).min_tile_height(36.0));
                        ui.add(ultra_list);
@@ -1082,6 +1310,212 @@ impl DataTableWindow {
         ui.add(static_drawer_table);
         ui.add_space(10.0);
         ui.label("Note: All drawers have fixed 120px height. Compare with auto-sizing drawers above.");
+
+        ui.add_space(20.0);
+        ui.separator();
+        ui.heading("Compact Rows with Selective Drawer");
+        ui.label("Drawers enabled only for rows matching condition (stock > 20)");
+        ui.label("Notice: only high-stock items show the drawer arrow (>)");
+
+        let compact_selective_table = data_table()
+            .id(Id::new("compact_selective_drawer"))
+            .allow_drawer(true)
+            .default_row_height(40.0)
+            .column("Product", 150.0, false)
+            .column("Category", 120.0, false)
+            .column("Stock", 80.0, true)
+            .row(|row| {
+                row.cell("Wireless Mouse")
+                   .cell("Accessories")
+                   .cell("15")
+                   // No drawer - stock (15) ≤ 20
+            })
+            .row(|row| {
+                let stock = 45;
+                row.cell("Mechanical Keyboard")
+                   .cell("Accessories")
+                   .cell("45")
+                   .drawer_if(stock > 20, |ui| {
+                       ui.add_space(4.0);
+                       ui.label("✓ High stock available");
+                       ui.label("Eligible for bulk discount (10+ units)");
+                       ui.label("Free shipping on orders over $100");
+                   })
+            })
+            .row(|row| {
+                row.cell("USB Cable")
+                   .cell("Accessories")
+                   .cell("8")
+                   // No drawer - stock (8) ≤ 20
+            })
+            .row(|row| {
+                let stock = 120;
+                row.cell("Monitor Stand")
+                   .cell("Accessories")
+                   .cell("120")
+                   .drawer_if(stock > 20, |ui| {
+                       ui.add_space(4.0);
+                       ui.label("✓ High stock available");
+                       ui.label("Eligible for bulk discount (10+ units)");
+                       ui.label("Warehouse: Building A, Shelf 12");
+                   })
+            })
+            .row(|row| {
+                row.cell("HDMI Adapter")
+                   .cell("Accessories")
+                   .cell("5")
+                   // No drawer - stock (5) ≤ 20
+            })
+            .row(|row| {
+                let stock = 67;
+                row.cell("Laptop Stand")
+                   .cell("Accessories")
+                   .cell("67")
+                   .drawer_if(stock > 20, |ui| {
+                       ui.add_space(4.0);
+                       ui.label("✓ High stock available");
+                       ui.label("Eligible for bulk discount (10+ units)");
+                       ui.label("Next restock: Not needed");
+                   })
+            });
+
+        ui.add(compact_selective_table);
+        ui.add_space(10.0);
+        ui.label("Pattern: Use `.drawer_if(condition, |ui| {...})` to conditionally enable drawers per row");
+
+        ui.add_space(20.0);
+        ui.separator();
+        ui.heading("Cell Tooltips for Long Content");
+        ui.label("Three modes: disabled (default), always enabled, or smart (only truncated text)");
+
+        ui.add_space(10.0);
+        ui.label("1. Tooltips DISABLED (default):");
+        let no_tooltip_table = data_table()
+            .id(Id::new("no_tooltip_table"))
+            .column("ID", 60.0, true)
+            .column("Name", 100.0, false)
+            .column("Description", 120.0, false)
+            .row(|row| {
+                row.cell("001")
+                   .cell("Short")
+                   .cell("This long text has no tooltip")
+            })
+            .row(|row| {
+                row.cell("002")
+                   .cell("Product Name")
+                   .cell("Very long description with no tooltip on hover")
+            });
+        ui.add(no_tooltip_table);
+
+        ui.add_space(10.0);
+        ui.label("2. Tooltips ALWAYS ENABLED:");
+        let mut always_tooltip_theme = DataTableTheme::default();
+        always_tooltip_theme.enable_cell_tooltips = true;
+
+        let always_tooltip_table = data_table()
+            .id(Id::new("always_tooltip_table"))
+            .column("ID", 60.0, true)
+            .column("Name", 100.0, false)
+            .column("Description", 120.0, false)
+            .theme(always_tooltip_theme)
+            .row(|row| {
+                row.cell("001")
+                   .cell("Short")
+                   .cell("Short text also shows tooltip")
+            })
+            .row(|row| {
+                row.cell("002")
+                   .cell("Product Alpha")
+                   .cell("This is a very long description that will be truncated in the cell but visible in tooltip when hovering")
+            });
+        ui.add(always_tooltip_table);
+
+        ui.add_space(10.0);
+        ui.label("3. SMART TOOLTIPS (only truncated text):");
+        let mut smart_tooltip_theme = DataTableTheme::default();
+        smart_tooltip_theme.smart_cell_tooltips = true;
+
+        let smart_tooltip_table = data_table()
+            .id(Id::new("smart_tooltip_table"))
+            .column("ID", 60.0, true)
+            .column("Name", 100.0, false)
+            .column("Description", 120.0, false)
+            .theme(smart_tooltip_theme)
+            .row(|row| {
+                row.cell("001")
+                   .cell("Short")
+                   .cell("Short - no tooltip")
+            })
+            .row(|row| {
+                row.cell("002")
+                   .cell("Product Beta Extended Name That Wraps")
+                   .cell("Another extremely long product description with extensive details - tooltip only here")
+            })
+            .row(|row| {
+                row.cell("003")
+                   .cell("OK")
+                   .cell("Normal text")
+            })
+            .row(|row| {
+                row.cell("004")
+                   .cell("Product Gamma Professional Edition")
+                   .cell("Complete product information including warranty details, technical specifications, compatibility notes, and customer support contact information")
+            });
+        ui.add(smart_tooltip_table);
+
+        ui.add_space(10.0);
+        ui.label("Note: Smart mode only shows tooltips when text exceeds column width");
+
+        ui.add_space(20.0);
+        ui.separator();
+        ui.heading("Custom Header Font Size");
+        ui.label("Headers with larger font size for better visibility");
+
+        let mut large_header_theme = DataTableTheme::default();
+        large_header_theme.header_font_size = Some(20.0);
+        large_header_theme.heading_row_height = Some(68.0);  // Taller to accommodate larger font
+
+        let large_header_table = data_table()
+            .id(Id::new("large_header_table"))
+            .column("Product Name", 180.0, false)
+            .column("Category", 120.0, false)
+            .column("Price", 100.0, true)
+            .column("Stock", 80.0, true)
+            .theme(large_header_theme)
+            .row(|row| {
+                row.cell("Laptop Pro").cell("Electronics").cell("$1299").cell("15")
+            })
+            .row(|row| {
+                row.cell("Wireless Mouse").cell("Accessories").cell("$39").cell("200")
+            })
+            .row(|row| {
+                row.cell("Keyboard").cell("Accessories").cell("$89").cell("45")
+            });
+
+        ui.add(large_header_table);
+
+        ui.add_space(10.0);
+
+        let mut small_header_theme = DataTableTheme::default();
+        small_header_theme.header_font_size = Some(12.0);
+        small_header_theme.heading_row_height = Some(40.0);  // Shorter for compact look
+
+        ui.label("Compact header with smaller font (12px):");
+        let small_header_table = data_table()
+            .id(Id::new("small_header_table"))
+            .column("Item", 120.0, false)
+            .column("Value", 80.0, true)
+            .theme(small_header_theme)
+            .row(|row| {
+                row.cell("Item A").cell("100")
+            })
+            .row(|row| {
+                row.cell("Item B").cell("200")
+            });
+
+        ui.add(small_header_table);
+        ui.add_space(10.0);
+        ui.label("Note: Use `theme.header_font_size = Some(size)` to customize header font");
         });
     }
 }

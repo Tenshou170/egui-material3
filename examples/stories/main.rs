@@ -3,8 +3,7 @@
 use eframe::egui::{self, Color32};
 use egui_file_dialog::FileDialog;
 use egui_material3::theme::{
-    load_fonts, load_themes, setup_google_fonts,
-    setup_local_fonts_from_bytes, setup_local_theme,
+    load_fonts, load_themes, setup_google_fonts, setup_local_fonts_from_bytes, setup_local_theme,
 };
 use egui_material3::*;
 use std::collections::HashMap;
@@ -24,9 +23,11 @@ mod dashcounter_window;
 mod datatable_window;
 mod dialog_window;
 mod drawer_window;
+mod egui_window;
 mod fab_window;
 mod iconbutton_window;
 mod imagelist_window;
+mod input_window;
 mod layoutgrid_window;
 mod list_window;
 mod menu_window;
@@ -37,8 +38,8 @@ mod select_window;
 mod slider_window;
 mod snackbar_window;
 mod spreadsheet_window;
-mod switch_window;
 mod svgemoji_window;
+mod switch_window;
 mod symbol_window;
 mod tabs_window;
 mod timeline_window;
@@ -46,6 +47,9 @@ mod toolbar_window;
 mod tooltip_window;
 mod topappbar_window;
 mod treeview_window;
+
+#[cfg(test)]
+mod theme_test;
 
 use actionsheet_window::ActionSheetWindow;
 use badge_window::BadgeWindow;
@@ -60,9 +64,11 @@ use dashcounter_window::DashCounterWindow;
 use datatable_window::DataTableWindow;
 use dialog_window::DialogWindow;
 use drawer_window::DrawerWindow;
+use egui_window::EguiWindow;
 use fab_window::FabWindow;
 use iconbutton_window::IconButtonWindow;
 use imagelist_window::ImageListWindow;
+use input_window::InputWindow;
 use layoutgrid_window::LayoutGridWindow;
 use list_window::ListWindow;
 use menu_window::MenuWindow;
@@ -73,20 +79,19 @@ use select_window::SelectWindow;
 use slider_window::SliderWindow;
 use snackbar_window::SnackbarWindow;
 use spreadsheet_window::SpreadsheetWindow;
-use switch_window::SwitchWindow;
 use svgemoji_window::SvgEmojiWindow;
+use switch_window::SwitchWindow;
 use symbol_window::SymbolWindow;
 use tabs_window::TabsWindow;
 use timeline_window::TimelineWindow;
 use toolbar_window::ToolbarWindow;
 use tooltip_window::TooltipWindow;
-use treeview_window::TreeViewWindow;
 use topappbar_window::TopAppBarWindow;
+use treeview_window::TreeViewWindow;
 
 fn main() -> Result<(), eframe::Error> {
-    // Initialize async-std executor for async operations (spreadsheet feature)
-    #[cfg(feature = "spreadsheet")]
-    egui_material3::egui_async_std::init_executor();
+    // Note: smol async runtime doesn't require explicit initialization
+    // The spreadsheet feature will use smol::block_on or smol::spawn as needed
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size([800.0, 1200.0]),
@@ -136,8 +141,10 @@ struct MaterialApp {
     chips_window: ChipsWindow,
     dashcounter_window: DashCounterWindow,
     dialog_window: DialogWindow,
+    egui_window: EguiWindow,
     fab_window: FabWindow,
     iconbutton_window: IconButtonWindow,
+    input_window: InputWindow,
     list_window: ListWindow,
     menu_window: MenuWindow,
     notification_window: NotificationWindow,
@@ -179,8 +186,10 @@ impl Default for MaterialApp {
             chips_window: ChipsWindow::default(),
             dashcounter_window: DashCounterWindow::default(),
             dialog_window: DialogWindow::default(),
+            egui_window: EguiWindow::default(),
             fab_window: FabWindow::default(),
             iconbutton_window: IconButtonWindow::default(),
+            input_window: InputWindow::default(),
             list_window: ListWindow::default(),
             menu_window: MenuWindow::default(),
             notification_window: NotificationWindow::default(),
@@ -241,6 +250,37 @@ impl MaterialApp {
         self.file_dialog.pick_file();
     }
 
+    /// Apply Material Design 3 theme colors to egui context
+    ///
+    /// # Material Design 3 Color System
+    ///
+    /// Colors are organized into semantic groups following M3 specifications:
+    ///
+    /// ## 1. Accent & Utility Colors
+    /// Drive core branding, actions, and states:
+    /// - **[Key]**: High-emphasis fill (e.g., `primary` for FABs, key actions)
+    /// - **on[Key]**: Text/icon on key color ensuring readable contrast
+    /// - **[Key]Container**: Lower-intensity container for cards, buttons, chips
+    /// - **on[Key]Container**: Text/icon on container color
+    ///
+    /// ## 2. Surfaces & Structural Hierarchy
+    /// Color-based tonal shifts indicate depth (replacing shadows):
+    /// - **surface/onSurface**: Baseline for cards, dialogs, sheets
+    /// - **surfaceContainer[Lowest→Highest]**: 5-tier depth system
+    /// - **outline/outlineVariant**: High/low contrast borders and dividers
+    /// - **surfaceTint**: Transparent primary layer indicating altitude
+    ///
+    /// ## 3. Inverse & Fixed Schemes
+    /// Maintain visual stability across themes:
+    /// - **inverse***: High-contrast snippets (dark snackbars on light theme)
+    /// - **\*Fixed**: Constants across light/dark mode switches
+    ///
+    /// # Dark Mode Token Swapping
+    ///
+    /// `get_global_color()` automatically swaps tokens for dark mode:
+    /// - `surface` → `inverseSurface` (dark background)
+    /// - `onSurface` → `inverseOnSurface` (light text)
+    /// - Container tokens → surface variations for proper contrast
     fn apply_theme(&self, ctx: &egui::Context) {
         let theme = self.get_theme();
 
@@ -257,48 +297,83 @@ impl MaterialApp {
             }
         };
 
-        // Apply Material Design 3 colors if theme is loaded
-        let primary_color = theme.get_primary_color();
-        let on_primary = theme.get_on_primary_color();
-        let surface = theme.get_surface_color(visuals.dark_mode);
-        let _on_surface = theme.get_color_by_name("onSurface");
-        let _background = theme.get_color_by_name("background");
-        let _on_background = theme.get_color_by_name("onBackground");
+        // Sync dark_mode state to global theme so components can access it via get_global_color()
+        if let Ok(mut global_theme) = egui_material3::get_global_theme().lock() {
+            global_theme.set_dark_mode(visuals.dark_mode);
+        }
 
-        // Apply colors to visuals
-        visuals.selection.bg_fill = primary_color;
-        visuals.selection.stroke.color = primary_color;
-        visuals.hyperlink_color = primary_color;
+        // ============================================================================
+        // FETCH MATERIAL DESIGN 3 COLOR TOKENS (grouped by semantic purpose)
+        // ============================================================================
 
-        // Button and widget colors
+        // === 1. ACCENT & UTILITY COLORS ===
+        // Primary: Main brand color for FABs, key actions, active states
+        let primary = egui_material3::get_global_color("primary");
+        let _on_primary = egui_material3::get_global_color("onPrimary");
+
+        // Secondary: Less prominent accents for chips, selection controls
+        let secondary_container = egui_material3::get_global_color("secondaryContainer");
+
+        // Inverse: High-contrast snippets (e.g., dark snackbars on light background)
+        let inverse_primary = egui_material3::get_global_color("inversePrimary");
+
+        // === 2. SURFACES & STRUCTURAL HIERARCHY ===
+        // Base surface: Baseline for standalone blocks (cards, dialogs, sheets)
+        let surface = egui_material3::get_global_color("surface");
+        let on_surface = egui_material3::get_global_color("onSurface");
+        let on_surface_variant = egui_material3::get_global_color("onSurfaceVariant");
+
+        // 5-tier container system (Lowest→Highest emphasis)
+        // Lowest: Closest to white (light) or black (dark)
+        // Highest: Maximum relative emphasis/forward prominence
+        let surface_container_lowest = egui_material3::get_global_color("surfaceContainerLowest");
+        let surface_container = egui_material3::get_global_color("surfaceContainer");
+        let surface_container_high = egui_material3::get_global_color("surfaceContainerHigh");
+        let surface_container_highest = egui_material3::get_global_color("surfaceContainerHighest");
+
+        // ============================================================================
+        // APPLY COLORS TO EGUI VISUALS (grouped by UI element type)
+        // ============================================================================
+
+        // --- Selection & Hyperlinks ---
+        // Selection uses secondaryContainer (less prominent than primary)
+        visuals.selection.bg_fill = secondary_container;
+        // Stroke uses inversePrimary for contrast with selection background
+        visuals.selection.stroke.color = inverse_primary;
+        // Links use primary brand color
+        visuals.hyperlink_color = primary;
+
+        // --- Text Hierarchy (Material Design 3: high/medium/disabled emphasis) ---
+        // DISABLED: override_text_color forces all text to one color, breaking Material components
+        // visuals.override_text_color = Some(on_surface); // High emphasis: body text, headings
+        visuals.weak_text_color = Some(on_surface_variant); // Medium emphasis: captions, labels
+
+        // --- Widget States (noninteractive/inactive/hovered/active) ---
+        // Noninteractive: Disabled or static elements
         visuals.widgets.noninteractive.bg_fill = surface;
+        visuals.widgets.noninteractive.fg_stroke.color = on_surface;
 
-        visuals.widgets.inactive.bg_fill = Color32::from_rgba_unmultiplied(
-            primary_color.r(),
-            primary_color.g(),
-            primary_color.b(),
-            20,
-        );
+        // Inactive: Default resting state (highest container for subtle elevation)
+        visuals.widgets.inactive.bg_fill = surface_container_highest;
+        visuals.widgets.inactive.fg_stroke.color = on_surface;
 
-        visuals.widgets.hovered.bg_fill = Color32::from_rgba_unmultiplied(
-            primary_color.r(),
-            primary_color.g(),
-            primary_color.b(),
-            40,
-        );
+        // Hovered: Mouse-over state (high container for depth)
+        visuals.widgets.hovered.bg_fill = surface_container_high;
+        visuals.widgets.hovered.fg_stroke.color = on_surface;
 
-        visuals.widgets.active.bg_fill = primary_color;
-        visuals.widgets.active.fg_stroke.color = on_primary;
+        // Active: Pressed/selected state (primary brand color for emphasis)
+        visuals.widgets.active.bg_fill = primary;
+        // Note: Uses onSurface (not onPrimary) so .strong() text is visible on normal backgrounds
+        // Material Design buttons handle their own onPrimary text color internally
+        visuals.widgets.active.fg_stroke.color = on_surface;
 
-        // Window background
+        // --- Background Surfaces (window/panel/extreme) ---
+        // Window: Main application surface
         visuals.window_fill = surface;
-        visuals.panel_fill = theme.get_color_by_name("surfaceContainer");
-
-        // Text colors
-        // visuals.override_text_color = Some(background);
-
-        // Apply surface colors
-        visuals.extreme_bg_color = theme.get_color_by_name("surfaceContainerLowest");
+        // Panel: Mid-tier container for content sections
+        visuals.panel_fill = surface_container;
+        // Extreme: Lowest tier for maximum depth/background layers
+        visuals.extreme_bg_color = surface_container_lowest;
 
         ctx.set_visuals(visuals);
     }
@@ -314,8 +389,10 @@ impl MaterialApp {
         self.chips_window.open = false;
         self.dashcounter_window.open = false;
         self.dialog_window.open = false;
+        self.egui_window.open = false;
         self.fab_window.open = false;
         self.iconbutton_window.open = false;
+        self.input_window.open = false;
         self.list_window.open = false;
         self.menu_window.open = false;
         self.progress_window.open = false;
@@ -371,369 +448,409 @@ impl eframe::App for MaterialApp {
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            let theme = self.get_theme();
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                let theme = self.get_theme();
 
-            ui.heading("Material Design Components Demo 테스트");
-            ui.add_space(10.0);
+                ui.heading("Material Design Components Demo 테스트");
+                ui.add_space(10.0);
 
-            // Material Design 3 Theme Controls
-            ui.group(|ui| {
-                ui.horizontal(|ui| {
-                    ui.heading("Material Theme Controls");
-
-                    if ui.add(MaterialButton::filled("Theme Builder").small()).clicked() {
-                        let _ = webbrowser::open(
-                            "https://material-foundation.github.io/material-theme-builder/",
-                        );
-                    }
-
-                    if ui.add(MaterialButton::filled("Google Fonts").small()).clicked() {
-                        let _ = webbrowser::open(
-                            "https://fonts.google.com/specimen/Google+Sans+Code?query=google+sans",
-                        );
-                    }
-                });
-
-                ui.add_space(8.0);
-
-                // File Upload Section
+                // Material Design 3 Theme Controls
                 ui.group(|ui| {
                     ui.horizontal(|ui| {
-                        ui.label("Theme File:");
+                        ui.heading("Material Theme Controls");
 
-                        if ui.add(MaterialButton::filled("📁 Load JSON Theme").small()).clicked() {
-                            self.load_theme_file();
+                        if ui
+                            .add(MaterialButton::filled("Theme Builder").small())
+                            .clicked()
+                        {
+                            let _ = webbrowser::open(
+                                "https://material-foundation.github.io/material-theme-builder/",
+                            );
                         }
 
-                        if let Some(ref path) = self.selected_file_path {
-                            ui.label(format!(
-                                "Loaded: {}",
-                                path.file_name().unwrap_or_default().to_string_lossy()
-                            ));
-                        } else {
-                            ui.label("No theme loaded");
+                        if ui
+                            .add(MaterialButton::filled("Google Fonts").small())
+                            .clicked()
+                        {
+                            let _ = webbrowser::open(
+                            "https://fonts.google.com/specimen/Google+Sans+Code?query=google+sans",
+                        );
                         }
                     });
-                });
 
-                ui.add_space(8.0);
+                    ui.add_space(8.0);
 
-                // Theme Mode Selector
-                ui.horizontal(|ui| {
-                    ui.label("Color Mode:");
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.horizontal(|ui| {
-                            // Light mode button
-                            let light_selected = theme.theme_mode == ThemeMode::Light;
-                            let light_button = ui.selectable_label(light_selected, "☀️ Light");
-                            if light_button.clicked() {
-                                self.update_theme(|theme| {
-                                    theme.theme_mode = ThemeMode::Light;
-                                });
-                            }
-
-                            // Auto mode button
-                            let auto_selected = theme.theme_mode == ThemeMode::Auto;
-                            let auto_button = ui.selectable_label(auto_selected, "🌗 Auto");
-                            if auto_button.clicked() {
-                                self.update_theme(|theme| {
-                                    theme.theme_mode = ThemeMode::Auto;
-                                });
-                            }
-
-                            // Dark mode button
-                            let dark_selected = theme.theme_mode == ThemeMode::Dark;
-                            let dark_button = ui.selectable_label(dark_selected, "🌙 Dark");
-                            if dark_button.clicked() {
-                                self.update_theme(|theme| {
-                                    theme.theme_mode = ThemeMode::Dark;
-                                });
-                            }
-                        });
-                    });
-                });
-
-                ui.add_space(8.0);
-
-                // Contrast Level Selection
-                ui.horizontal(|ui| {
-                    ui.label("Contrast:");
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.horizontal(|ui| {
-                            let normal_selected = theme.contrast_level == ContrastLevel::Normal;
-                            let normal_button = ui.selectable_label(normal_selected, "Normal");
-                            if normal_button.clicked() {
-                                self.update_theme(|theme| {
-                                    theme.contrast_level = ContrastLevel::Normal;
-                                });
-                            }
-
-                            let medium_selected = theme.contrast_level == ContrastLevel::Medium;
-                            let medium_button = ui.selectable_label(medium_selected, "Medium");
-                            if medium_button.clicked() {
-                                self.update_theme(|theme| {
-                                    theme.contrast_level = ContrastLevel::Medium;
-                                });
-                            }
-
-                            let high_selected = theme.contrast_level == ContrastLevel::High;
-                            let high_button = ui.selectable_label(high_selected, "High");
-                            if high_button.clicked() {
-                                self.update_theme(|theme| {
-                                    theme.contrast_level = ContrastLevel::High;
-                                });
-                            }
-                        });
-                    });
-                });
-
-                ui.add_space(8.0);
-
-                // 49 Color Selectors - always show since we have default theme
-                {
+                    // File Upload Section
                     ui.group(|ui| {
-                        ui.label("Material Color Tokens:");
-                        ui.add_space(4.0);
+                        ui.horizontal(|ui| {
+                            ui.label("Theme File:");
 
-                        let color_names = [
-                            "primary",
-                            "surfaceTint",
-                            "onPrimary",
-                            "primaryContainer",
-                            "onPrimaryContainer",
-                            "secondary",
-                            "onSecondary",
-                            "secondaryContainer",
-                            "onSecondaryContainer",
-                            "tertiary",
-                            "onTertiary",
-                            "tertiaryContainer",
-                            "onTertiaryContainer",
-                            "error",
-                            "onError",
-                            "errorContainer",
-                            "onErrorContainer",
-                            "background",
-                            "onBackground",
-                            "surface",
-                            "onSurface",
-                            "surfaceVariant",
-                            "onSurfaceVariant",
-                            "outline",
-                            "outlineVariant",
-                            "shadow",
-                            "scrim",
-                            "inverseSurface",
-                            "inverseOnSurface",
-                            "inversePrimary",
-                            "primaryFixed",
-                            "onPrimaryFixed",
-                            "primaryFixedDim",
-                            "onPrimaryFixedVariant",
-                            "secondaryFixed",
-                            "onSecondaryFixed",
-                            "secondaryFixedDim",
-                            "onSecondaryFixedVariant",
-                            "tertiaryFixed",
-                            "onTertiaryFixed",
-                            "tertiaryFixedDim",
-                            "onTertiaryFixedVariant",
-                            "surfaceDim",
-                            "surfaceBright",
-                            "surfaceContainerLowest",
-                            "surfaceContainerLow",
-                            "surfaceContainer",
-                            "surfaceContainerHigh",
-                            "surfaceContainerHighest",
-                        ];
+                            if ui
+                                .add(MaterialButton::filled("📁 Load JSON Theme").small())
+                                .clicked()
+                            {
+                                self.load_theme_file();
+                            }
 
-                        ui.horizontal_wrapped(|ui| {
-                            for color_name in &color_names {
-                                let current_color = theme.get_color_by_name(color_name);
+                            if let Some(ref path) = self.selected_file_path {
+                                ui.label(format!(
+                                    "Loaded: {}",
+                                    path.file_name().unwrap_or_default().to_string_lossy()
+                                ));
+                            } else {
+                                ui.label("No theme loaded");
+                            }
+                        });
+                    });
 
-                                // Color name label
-                                ui.label(*color_name);
+                    ui.add_space(8.0);
 
-                                let mut temp_color = current_color;
-                                let color_changed =
-                                    ui.color_edit_button_srgba(&mut temp_color).changed();
-                                if color_changed {
+                    // Theme Mode Selector
+                    ui.horizontal(|ui| {
+                        ui.label("Color Mode:");
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            ui.horizontal(|ui| {
+                                // Light mode button
+                                let light_selected = theme.theme_mode == ThemeMode::Light;
+                                let light_button = ui.selectable_label(light_selected, "☀️ Light");
+                                if light_button.clicked() {
                                     self.update_theme(|theme| {
-                                        theme
-                                            .selected_colors
-                                            .insert(color_name.to_string(), temp_color);
+                                        theme.theme_mode = ThemeMode::Light;
                                     });
                                 }
-                                ui.separator();
-                            }
+
+                                // Auto mode button
+                                let auto_selected = theme.theme_mode == ThemeMode::Auto;
+                                let auto_button = ui.selectable_label(auto_selected, "🌗 Auto");
+                                if auto_button.clicked() {
+                                    self.update_theme(|theme| {
+                                        theme.theme_mode = ThemeMode::Auto;
+                                    });
+                                }
+
+                                // Dark mode button
+                                let dark_selected = theme.theme_mode == ThemeMode::Dark;
+                                let dark_button = ui.selectable_label(dark_selected, "🌙 Dark");
+                                if dark_button.clicked() {
+                                    self.update_theme(|theme| {
+                                        theme.theme_mode = ThemeMode::Dark;
+                                    });
+                                }
+                            });
                         });
                     });
-                }
+
+                    ui.add_space(8.0);
+
+                    // Contrast Level Selection
+                    ui.horizontal(|ui| {
+                        ui.label("Contrast:");
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            ui.horizontal(|ui| {
+                                let normal_selected = theme.contrast_level == ContrastLevel::Normal;
+                                let normal_button = ui.selectable_label(normal_selected, "Normal");
+                                if normal_button.clicked() {
+                                    self.update_theme(|theme| {
+                                        theme.contrast_level = ContrastLevel::Normal;
+                                    });
+                                }
+
+                                let medium_selected = theme.contrast_level == ContrastLevel::Medium;
+                                let medium_button = ui.selectable_label(medium_selected, "Medium");
+                                if medium_button.clicked() {
+                                    self.update_theme(|theme| {
+                                        theme.contrast_level = ContrastLevel::Medium;
+                                    });
+                                }
+
+                                let high_selected = theme.contrast_level == ContrastLevel::High;
+                                let high_button = ui.selectable_label(high_selected, "High");
+                                if high_button.clicked() {
+                                    self.update_theme(|theme| {
+                                        theme.contrast_level = ContrastLevel::High;
+                                    });
+                                }
+                            });
+                        });
+                    });
+
+                    ui.add_space(8.0);
+
+                    // 49 Color Selectors - always show since we have default theme
+                    {
+                        ui.group(|ui| {
+                            ui.label("Material Color Tokens:");
+                            ui.add_space(4.0);
+
+                            let color_names = [
+                                "primary",
+                                "surfaceTint",
+                                "onPrimary",
+                                "primaryContainer",
+                                "onPrimaryContainer",
+                                "secondary",
+                                "onSecondary",
+                                "secondaryContainer",
+                                "onSecondaryContainer",
+                                "tertiary",
+                                "onTertiary",
+                                "tertiaryContainer",
+                                "onTertiaryContainer",
+                                "error",
+                                "onError",
+                                "errorContainer",
+                                "onErrorContainer",
+                                "background",
+                                "onBackground",
+                                "surface",
+                                "onSurface",
+                                "surfaceVariant",
+                                "onSurfaceVariant",
+                                "outline",
+                                "outlineVariant",
+                                "shadow",
+                                "scrim",
+                                "inverseSurface",
+                                "inverseOnSurface",
+                                "inversePrimary",
+                                "primaryFixed",
+                                "onPrimaryFixed",
+                                "primaryFixedDim",
+                                "onPrimaryFixedVariant",
+                                "secondaryFixed",
+                                "onSecondaryFixed",
+                                "secondaryFixedDim",
+                                "onSecondaryFixedVariant",
+                                "tertiaryFixed",
+                                "onTertiaryFixed",
+                                "tertiaryFixedDim",
+                                "onTertiaryFixedVariant",
+                                "surfaceDim",
+                                "surfaceBright",
+                                "surfaceContainerLowest",
+                                "surfaceContainerLow",
+                                "surfaceContainer",
+                                "surfaceContainerHigh",
+                                "surfaceContainerHighest",
+                            ];
+
+                            ui.horizontal_wrapped(|ui| {
+                                for color_name in &color_names {
+                                    let current_color = theme.get_color_by_name(color_name);
+
+                                    // Color name label
+                                    ui.label(*color_name);
+
+                                    let mut temp_color = current_color;
+                                    let color_changed =
+                                        ui.color_edit_button_srgba(&mut temp_color).changed();
+                                    if color_changed {
+                                        self.update_theme(|theme| {
+                                            theme
+                                                .selected_colors
+                                                .insert(color_name.to_string(), temp_color);
+                                        });
+                                    }
+                                    ui.separator();
+                                }
+                            });
+                        });
+                    }
+                });
+
+                ui.add_space(15.0);
+                ui.label("Demo Windows:");
+                ui.horizontal_wrapped(|ui| {
+                    if ui
+                        .add(MaterialButton::filled("Action Sheet Stories"))
+                        .clicked()
+                    {
+                        self.actionsheet_window.open = true;
+                    }
+
+                    if ui.add(MaterialButton::filled("Badge Stories")).clicked() {
+                        self.badge_window.open = true;
+                    }
+
+                    if ui.add(MaterialButton::filled("Bottom App Bar Stories")).clicked() {
+                        self.bottomappbar_window.open = true;
+                    }
+
+                    if ui
+                        .add(MaterialButton::filled("Breadcrumbs Stories"))
+                        .clicked()
+                    {
+                        self.breadcrumbs_window.open = true;
+                    }
+
+                    if ui.add(MaterialButton::filled("Button Stories")).clicked() {
+                        self.button_window.open = true;
+                    }
+
+                    if ui.add(MaterialButton::filled("Checkbox Stories")).clicked() {
+                        self.checkbox_window.open = true;
+                    }
+
+                    if ui.add(MaterialButton::filled("Chips Stories")).clicked() {
+                        self.chips_window.open = true;
+                    }
+
+                    if ui
+                        .add(MaterialButton::filled("Data Table Stories"))
+                        .clicked()
+                    {
+                        self.datatable_window.open = true;
+                    }
+
+                    if ui.add(MaterialButton::filled("Dialog Stories")).clicked() {
+                        self.dialog_window.open = true;
+                    }
+
+                    if ui.add(MaterialButton::filled("Drawer Stories")).clicked() {
+                        self.drawer_window.open = true;
+                    }
+
+                    if ui
+                        .add(MaterialButton::filled("Egui Widget Gallery"))
+                        .clicked()
+                    {
+                        self.egui_window.open = true;
+                    }
+
+                    if ui
+                        .add(MaterialButton::filled("Enhanced Card (Card2) Stories"))
+                        .clicked()
+                    {
+                        self.card2_window.open = true;
+                    }
+
+                    if ui.add(MaterialButton::filled("Carousel Stories")).clicked() {
+                        self.carousel_window.open = true;
+                    }
+
+                    if ui
+                        .add(MaterialButton::filled("Dashboard Counter Stories"))
+                        .clicked()
+                    {
+                        self.dashcounter_window.open = true;
+                    }
+
+                    if ui.add(MaterialButton::filled("FAB Stories")).clicked() {
+                        self.fab_window.open = true;
+                    }
+
+                    if ui
+                        .add(MaterialButton::filled("Icon Button Stories"))
+                        .clicked()
+                    {
+                        self.iconbutton_window.open = true;
+                    }
+
+                    if ui.add(MaterialButton::filled("Input Stories")).clicked() {
+                        self.input_window.open = true;
+                    }
+
+                    if ui
+                        .add(MaterialButton::filled("Image List Stories"))
+                        .clicked()
+                    {
+                        self.imagelist_window.open = true;
+                    }
+
+                    if ui
+                        .add(MaterialButton::filled("Layout Grid Stories"))
+                        .clicked()
+                    {
+                        self.layoutgrid_window.open = true;
+                    }
+
+                    if ui.add(MaterialButton::filled("List Stories")).clicked() {
+                        self.list_window.open = true;
+                    }
+
+                    if ui.add(MaterialButton::filled("Menu Stories")).clicked() {
+                        self.menu_window.open = true;
+                    }
+
+                    if ui
+                        .add(MaterialButton::filled("Notification Stories"))
+                        .clicked()
+                    {
+                        self.notification_window.open = true;
+                    }
+
+                    if ui.add(MaterialButton::filled("Progress Stories")).clicked() {
+                        self.progress_window.open = true;
+                    }
+
+                    if ui.add(MaterialButton::filled("Radio Stories")).clicked() {
+                        self.radio_window.open = true;
+                    }
+
+                    if ui.add(MaterialButton::filled("Select Stories")).clicked() {
+                        self.select_window.open = true;
+                    }
+
+                    if ui.add(MaterialButton::filled("Slider Stories")).clicked() {
+                        self.slider_window.open = true;
+                    }
+
+                    if ui.add(MaterialButton::filled("Snackbar Stories")).clicked() {
+                        self.snackbar_window.open = true;
+                    }
+
+                    if ui
+                        .add(MaterialButton::filled("Spreadsheet Stories"))
+                        .clicked()
+                    {
+                        self.spreadsheet_window.open = true;
+                    }
+
+                    if ui.add(MaterialButton::filled("Switch Stories")).clicked() {
+                        self.switch_window.open = true;
+                    }
+
+                    if ui
+                        .add(MaterialButton::filled("SVG Emoji Stories"))
+                        .clicked()
+                    {
+                        self.svgemoji_window.open = true;
+                    }
+
+                    if ui.add(MaterialButton::filled("Symbol Stories")).clicked() {
+                        self.symbol_window.open = true;
+                    }
+
+                    if ui.add(MaterialButton::filled("Tabs Stories")).clicked() {
+                        self.tabs_window.open = true;
+                    }
+
+                    if ui.add(MaterialButton::filled("Timeline Stories")).clicked() {
+                        self.timeline_window.open = true;
+                    }
+
+                    if ui.add(MaterialButton::filled("Toolbar Stories")).clicked() {
+                        self.toolbar_window.open = true;
+                    }
+
+                    if ui.add(MaterialButton::filled("Tooltip Stories")).clicked() {
+                        self.tooltip_window.open = true;
+                    }
+
+                    if ui.add(MaterialButton::filled("TreeView Stories")).clicked() {
+                        self.treeview_window.open = true;
+                    }
+
+                    if ui
+                        .add(MaterialButton::filled("Top App Bar Stories"))
+                        .clicked()
+                    {
+                        self.topappbar_window.open = true;
+                    }
+                });
+
+                ui.add_space(15.0);
             });
-
-            ui.add_space(15.0);
-            ui.label("Demo Windows:");
-            ui.horizontal_wrapped(|ui| {
-                if ui.add(MaterialButton::filled("Action Sheet Stories")).clicked() {
-                    self.actionsheet_window.open = true;
-                }
-
-                if ui.add(MaterialButton::filled("Badge Stories")).clicked() {
-                    self.badge_window.open = true;
-                }
-
-                if ui.add(MaterialButton::filled("Bottom App Bar Stories")).clicked() {
-                    self.bottomappbar_window.open = true;
-                }
-
-                if ui.add(MaterialButton::filled("Breadcrumbs Stories")).clicked() {
-                    self.breadcrumbs_window.open = true;
-                }
-
-                if ui.add(MaterialButton::filled("Button Stories")).clicked() {
-                    self.button_window.open = true;
-                }
-
-                if ui.add(MaterialButton::filled("Checkbox Stories")).clicked() {
-                    self.checkbox_window.open = true;
-                }
-
-                if ui.add(MaterialButton::filled("Chips Stories")).clicked() {
-                    self.chips_window.open = true;
-                }
-
-                if ui
-                    .add(MaterialButton::filled("Data Table Stories"))
-                    .clicked()
-                {
-                    self.datatable_window.open = true;
-                }
-
-                if ui.add(MaterialButton::filled("Dialog Stories")).clicked() {
-                    self.dialog_window.open = true;
-                }
-
-                if ui.add(MaterialButton::filled("Drawer Stories")).clicked() {
-                    self.drawer_window.open = true;
-                }
-
-                if ui
-                    .add(MaterialButton::filled("Enhanced Card (Card2) Stories"))
-                    .clicked()
-                {
-                    self.card2_window.open = true;
-                }
-
-                if ui.add(MaterialButton::filled("Carousel Stories")).clicked() {
-                    self.carousel_window.open = true;
-                }
-
-                if ui.add(MaterialButton::filled("Dashboard Counter Stories")).clicked() {
-                    self.dashcounter_window.open = true;
-                }
-
-                if ui.add(MaterialButton::filled("FAB Stories")).clicked() {
-                    self.fab_window.open = true;
-                }
-
-                if ui
-                    .add(MaterialButton::filled("Icon Button Stories"))
-                    .clicked()
-                {
-                    self.iconbutton_window.open = true;
-                }
-
-                if ui
-                    .add(MaterialButton::filled("Image List Stories"))
-                    .clicked()
-                {
-                    self.imagelist_window.open = true;
-                }
-
-                if ui
-                    .add(MaterialButton::filled("Layout Grid Stories"))
-                    .clicked()
-                {
-                    self.layoutgrid_window.open = true;
-                }
-
-                if ui.add(MaterialButton::filled("List Stories")).clicked() {
-                    self.list_window.open = true;
-                }
-
-                if ui.add(MaterialButton::filled("Menu Stories")).clicked() {
-                    self.menu_window.open = true;
-                }
-
-                if ui.add(MaterialButton::filled("Notification Stories")).clicked() {
-                    self.notification_window.open = true;
-                }
-
-                if ui.add(MaterialButton::filled("Progress Stories")).clicked() {
-                    self.progress_window.open = true;
-                }
-
-                if ui.add(MaterialButton::filled("Radio Stories")).clicked() {
-                    self.radio_window.open = true;
-                }
-
-                if ui.add(MaterialButton::filled("Select Stories")).clicked() {
-                    self.select_window.open = true;
-                }
-
-                if ui.add(MaterialButton::filled("Slider Stories")).clicked() {
-                    self.slider_window.open = true;
-                }
-
-                if ui.add(MaterialButton::filled("Snackbar Stories")).clicked() {
-                    self.snackbar_window.open = true;
-                }
-
-                if ui.add(MaterialButton::filled("Spreadsheet Stories")).clicked() {
-                    self.spreadsheet_window.open = true;
-                }
-
-                if ui.add(MaterialButton::filled("Switch Stories")).clicked() {
-                    self.switch_window.open = true;
-                }
-
-                if ui.add(MaterialButton::filled("SVG Emoji Stories")).clicked() {
-                    self.svgemoji_window.open = true;
-                }
-
-                if ui.add(MaterialButton::filled("Symbol Stories")).clicked() {
-                    self.symbol_window.open = true;
-                }
-
-                if ui.add(MaterialButton::filled("Tabs Stories")).clicked() {
-                    self.tabs_window.open = true;
-                }
-
-                if ui.add(MaterialButton::filled("Timeline Stories")).clicked() {
-                    self.timeline_window.open = true;
-                }
-
-                if ui.add(MaterialButton::filled("Toolbar Stories")).clicked() {
-                    self.toolbar_window.open = true;
-                }
-
-                if ui.add(MaterialButton::filled("Tooltip Stories")).clicked() {
-                    self.tooltip_window.open = true;
-                }
-
-                if ui.add(MaterialButton::filled("TreeView Stories")).clicked() {
-                    self.treeview_window.open = true;
-                }
-
-                if ui
-                    .add(MaterialButton::filled("Top App Bar Stories"))
-                    .clicked()
-                {
-                    self.topappbar_window.open = true;
-                }
-            });
-
-            ui.add_space(15.0);
         });
 
         // Show demo windows
@@ -747,6 +864,7 @@ impl eframe::App for MaterialApp {
         self.dialog_window.show(ctx);
         self.fab_window.show(ctx);
         self.iconbutton_window.show(ctx);
+        self.input_window.show(ctx);
         self.list_window.show(ctx);
         self.menu_window.show(ctx);
         self.notification_window.show(ctx);
@@ -758,6 +876,7 @@ impl eframe::App for MaterialApp {
         self.tabs_window.show(ctx);
         self.datatable_window.show(ctx);
         self.drawer_window.show(ctx);
+        self.egui_window.show(ctx);
         self.imagelist_window.show(ctx);
         self.layoutgrid_window.show(ctx);
         self.snackbar_window.show(ctx);

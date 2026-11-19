@@ -43,9 +43,7 @@
 //! - **Touch target**: 48x48dp minimum
 
 use crate::{get_global_color, image_utils};
-use egui::{
-    self, Color32, Pos2, Rect, Response, Sense, Stroke, TextureHandle, Ui, Vec2, Widget,
-};
+use egui::{self, Color32, Pos2, Rect, Response, Sense, Stroke, TextureHandle, Ui, Vec2, Widget};
 
 /// Material Design chip variants following Material Design 3 specifications
 #[derive(Clone, Copy, PartialEq)]
@@ -394,10 +392,10 @@ fn resolve_chip_colors(
     // Selected filter chip: secondaryContainer background with onSecondaryContainer content
     if variant == ChipVariant::Filter && is_selected {
         return ChipColors {
-            bg: secondary_container, // Selected filter uses secondaryContainer
+            bg: secondary_container,      // Selected filter uses secondaryContainer
             border: Color32::TRANSPARENT, // No border when selected
             text: on_secondary_container, // Text uses onSecondaryContainer
-            icon: primary, // Checkmark uses primary for emphasis
+            icon: primary,                // Checkmark uses primary for emphasis
             delete_icon: on_secondary_container, // Remove icon uses onSecondaryContainer
             state_layer,
         };
@@ -406,10 +404,10 @@ fn resolve_chip_colors(
     // Elevated chip: surfaceContainerLow background with shadow (assist/suggestion chips)
     if elevated {
         return ChipColors {
-            bg: surface_container_low, // Elevated background (lighter surface)
-            border: Color32::TRANSPARENT, // No border for elevated chips
-            text: on_surface_variant, // Text uses onSurfaceVariant
-            icon: primary, // Leading icon uses primary
+            bg: surface_container_low,       // Elevated background (lighter surface)
+            border: Color32::TRANSPARENT,    // No border for elevated chips
+            text: on_surface_variant,        // Text uses onSurfaceVariant
+            icon: primary,                   // Leading icon uses primary
             delete_icon: on_surface_variant, // Remove icon uses onSurfaceVariant
             state_layer,
         };
@@ -430,19 +428,23 @@ impl<'a> Widget for MaterialChip<'a> {
     fn ui(self, ui: &mut Ui) -> Response {
         let is_selected = self.selected.as_ref().is_some_and(|s| **s);
 
-        let text_width = ui.painter().layout_no_wrap(
-            self.text.clone(),
-            egui::FontId::default(),
-            egui::Color32::WHITE,
-        ).rect.width();
+        let text_width = ui
+            .painter()
+            .layout_no_wrap(
+                self.text.clone(),
+                egui::FontId::default(),
+                egui::Color32::WHITE,
+            )
+            .rect
+            .width();
 
-        let has_leading = self.leading_icon.is_some()
-            || (self.variant == ChipVariant::Filter && is_selected);
-        let height = if self.is_small { 24.0_f32 } else { 32.0_f32 };
-        let icon_size = if self.is_small { 18.0_f32 } else { 24.0_f32 };
-        let icon_width = if has_leading { icon_size } else { 0.0_f32 };
-        let remove_width = if self.removable { icon_size } else { 0.0_f32 };
-        let padding = if self.is_small { 12.0_f32 } else { 16.0_f32 };
+        let has_leading =
+            self.leading_icon.is_some() || (self.variant == ChipVariant::Filter && is_selected);
+        let height = if self.is_small { 24.0 } else { 32.0 };
+        let icon_size = if self.is_small { 18.0 } else { 24.0 };
+        let icon_width = if has_leading { icon_size } else { 0.0 };
+        let remove_width = if self.removable { icon_size } else { 0.0 };
+        let padding = if self.is_small { 12.0 } else { 16.0 };
 
         let desired_size = Vec2::new(
             (text_width + icon_width + remove_width + padding).min(ui.available_width()),
@@ -602,7 +604,10 @@ impl<'a> Widget for MaterialChip<'a> {
         if self.removable {
             let icon_display_size = icon_size * 0.833; // 20/24 ratio for visual balance
             let remove_rect = Rect::from_min_size(
-                Pos2::new(rect.max.x - icon_size, rect.center().y - icon_display_size / 2.0),
+                Pos2::new(
+                    rect.max.x - icon_size,
+                    rect.center().y - icon_display_size / 2.0,
+                ),
                 Vec2::splat(icon_display_size),
             );
 

@@ -1,8 +1,8 @@
 #![doc(hidden)]
 
-use crate::{list, list_item, MaterialButton};
-use egui_material3::VisualDensity;
+use crate::MaterialButton;
 use eframe::egui::{self, Window};
+use egui_material3::{ListItem, MaterialList, VisualDensity};
 
 #[doc(hidden)]
 pub struct ListWindow {
@@ -15,7 +15,7 @@ pub struct ListWindow {
     leading_icon: bool,
     trailing_icon: bool,
     visual_density_mode: usize, // 0=Standard, 1=Comfortable, 2=Compact
-    selected_items: Vec<bool>, // For selection demo
+    selected_items: Vec<bool>,  // For selection demo
 }
 
 impl Default for ListWindow {
@@ -57,7 +57,13 @@ impl ListWindow {
                     ui.add_space(20.0);
                     self.render_visual_density_comparison(ui);
                     ui.add_space(20.0);
+                    self.render_drawer_demo(ui);
+                    ui.add_space(20.0);
+                    self.render_text_indicator_drawer_demo(ui);
+                    ui.add_space(20.0);
                     self.render_real_world_examples(ui);
+                    ui.add_space(20.0);
+                    self.render_full_width_example(ui);
                 });
             });
         self.open = open;
@@ -113,11 +119,11 @@ impl ListWindow {
     fn render_standard_list(&mut self, ui: &mut egui::Ui) {
         ui.heading("Standard List");
 
-        let mut single_line_list = list().id("standard_list_main");
+        let mut single_line_list = MaterialList::new().id("standard_list_main");
         let visual_density = self.get_visual_density();
 
         // Single line item
-        let mut single_item = list_item("Single line item")
+        let mut single_item = ListItem::new("Single line item")
             .enabled(!self.disabled)
             .selected(self.selected)
             .dense(self.dense)
@@ -139,7 +145,7 @@ impl ListWindow {
             single_line_list.item(single_item.on_click(|| println!("Single line item clicked!")));
 
         // Two line item
-        let mut two_line_item = list_item("Two line item")
+        let mut two_line_item = ListItem::new("Two line item")
             .secondary_text("Supporting text")
             .enabled(!self.disabled)
             .selected(self.selected)
@@ -162,7 +168,7 @@ impl ListWindow {
             single_line_list.item(two_line_item.on_click(|| println!("Two line item clicked!")));
 
         // Three line item
-        let mut three_line_item = list_item("Three line item")
+        let mut three_line_item = ListItem::new("Three line item")
             .secondary_text("Second line text\nThird line text")
             .enabled(!self.disabled)
             .selected(self.selected)
@@ -190,11 +196,11 @@ impl ListWindow {
     fn render_interactive_list(&mut self, ui: &mut egui::Ui) {
         ui.heading("Interactive List");
 
-        let mut interactive_list = list().id("interactive_list");
+        let mut interactive_list = MaterialList::new().id("interactive_list");
         let visual_density = self.get_visual_density();
 
         // Link item
-        let mut link_item = list_item("Link item")
+        let mut link_item = ListItem::new("Link item")
             .trailing_icon("open_in_new".to_string())
             .enabled(!self.disabled)
             .selected(self.selected)
@@ -211,7 +217,7 @@ impl ListWindow {
             interactive_list.item(link_item.on_click(|| println!("Link item clicked!")));
 
         // Button item
-        let mut button_item = list_item("Button item")
+        let mut button_item = ListItem::new("Button item")
             .enabled(!self.disabled)
             .selected(self.selected)
             .dense(self.dense)
@@ -233,7 +239,7 @@ impl ListWindow {
             interactive_list.item(button_item.on_click(|| println!("Button item clicked!")));
 
         // Non-interactive item
-        let mut non_interactive_item = list_item(&format!(
+        let mut non_interactive_item = ListItem::new(&format!(
             "Non-interactive item{}",
             if self.disabled { " (disabled)" } else { "" }
         ))
@@ -266,30 +272,30 @@ impl ListWindow {
         ui.horizontal(|ui| {
             ui.vertical(|ui| {
                 ui.label("Dense List:");
-                let small_list = list()
+                let small_list = MaterialList::new()
                     .id("small_dense_list")
                     .item(
-                        list_item("Inbox")
+                        ListItem::new("Inbox")
                             .leading_icon("inbox".to_string())
                             .trailing_text("12")
                             .dense(true)
                             .on_click(|| println!("Inbox clicked")),
                     )
                     .item(
-                        list_item("Drafts")
+                        ListItem::new("Drafts")
                             .leading_icon("drafts".to_string())
                             .trailing_text("3")
                             .dense(true)
                             .on_click(|| println!("Drafts clicked")),
                     )
                     .item(
-                        list_item("Sent")
+                        ListItem::new("Sent")
                             .leading_icon("send".to_string())
                             .dense(true)
                             .on_click(|| println!("Sent clicked")),
                     )
                     .item(
-                        list_item("Trash")
+                        ListItem::new("Trash")
                             .leading_icon("delete".to_string())
                             .trailing_text("5")
                             .dense(true)
@@ -300,28 +306,28 @@ impl ListWindow {
 
             ui.vertical(|ui| {
                 ui.label("Compact Visual Density:");
-                let compact_list = list()
+                let compact_list = MaterialList::new()
                     .id("compact_density_list")
                     .item(
-                        list_item("Starred")
+                        ListItem::new("Starred")
                             .leading_icon("star".to_string())
                             .visual_density(VisualDensity::COMPACT)
                             .on_click(|| println!("Starred clicked")),
                     )
                     .item(
-                        list_item("Important")
+                        ListItem::new("Important")
                             .leading_icon("label_important".to_string())
                             .visual_density(VisualDensity::COMPACT)
                             .on_click(|| println!("Important clicked")),
                     )
                     .item(
-                        list_item("Spam")
+                        ListItem::new("Spam")
                             .leading_icon("report".to_string())
                             .visual_density(VisualDensity::COMPACT)
                             .on_click(|| println!("Spam clicked")),
                     )
                     .item(
-                        list_item("Archive")
+                        ListItem::new("Archive")
                             .leading_icon("archive".to_string())
                             .visual_density(VisualDensity::COMPACT)
                             .on_click(|| println!("Archive clicked")),
@@ -331,10 +337,10 @@ impl ListWindow {
 
             ui.vertical(|ui| {
                 ui.label("Custom Small Height:");
-                let custom_small_list = list()
+                let custom_small_list = MaterialList::new()
                     .id("custom_small_list")
                     .item(
-                        list_item("Tasks")
+                        ListItem::new("Tasks")
                             .leading_icon("task_alt".to_string())
                             .trailing_text("8")
                             .min_tile_height(40.0)
@@ -342,7 +348,7 @@ impl ListWindow {
                             .on_click(|| println!("Tasks clicked")),
                     )
                     .item(
-                        list_item("Notes")
+                        ListItem::new("Notes")
                             .leading_icon("note".to_string())
                             .trailing_text("15")
                             .min_tile_height(40.0)
@@ -350,14 +356,14 @@ impl ListWindow {
                             .on_click(|| println!("Notes clicked")),
                     )
                     .item(
-                        list_item("Calendar")
+                        ListItem::new("Calendar")
                             .leading_icon("calendar_today".to_string())
                             .min_tile_height(40.0)
                             .min_vertical_padding(4.0)
                             .on_click(|| println!("Calendar clicked")),
                     )
                     .item(
-                        list_item("Reminders")
+                        ListItem::new("Reminders")
                             .leading_icon("alarm".to_string())
                             .trailing_text("2")
                             .min_tile_height(40.0)
@@ -370,24 +376,24 @@ impl ListWindow {
 
         ui.add_space(10.0);
         ui.label("Dense lists with secondary text:");
-        let dense_two_line = list()
+        let dense_two_line = MaterialList::new()
             .id("dense_two_line_list")
             .item(
-                list_item("Meeting Tomorrow")
+                ListItem::new("Meeting Tomorrow")
                     .secondary_text("Conference Room A, 10:00 AM")
                     .leading_icon("event".to_string())
                     .dense(true)
                     .on_click(|| println!("Meeting clicked")),
             )
             .item(
-                list_item("Project Deadline")
+                ListItem::new("Project Deadline")
                     .secondary_text("Submit final report by Friday")
                     .leading_icon("assignment".to_string())
                     .dense(true)
                     .on_click(|| println!("Project clicked")),
             )
             .item(
-                list_item("Team Standup")
+                ListItem::new("Team Standup")
                     .secondary_text("Daily sync at 9:30 AM")
                     .leading_icon("groups".to_string())
                     .dense(true)
@@ -402,10 +408,10 @@ impl ListWindow {
         ui.horizontal(|ui| {
             ui.vertical(|ui| {
                 ui.label("Narrow Leading Width:");
-                let narrow_list = list()
+                let narrow_list = MaterialList::new()
                     .id("narrow_leading_list")
                     .item(
-                        list_item("Photos")
+                        ListItem::new("Photos")
                             .leading_icon("photo".to_string())
                             .trailing_text("1.2 GB")
                             .min_leading_width(32.0)
@@ -413,7 +419,7 @@ impl ListWindow {
                             .on_click(|| println!("Photos clicked")),
                     )
                     .item(
-                        list_item("Videos")
+                        ListItem::new("Videos")
                             .leading_icon("videocam".to_string())
                             .trailing_text("5.8 GB")
                             .min_leading_width(32.0)
@@ -421,7 +427,7 @@ impl ListWindow {
                             .on_click(|| println!("Videos clicked")),
                     )
                     .item(
-                        list_item("Documents")
+                        ListItem::new("Documents")
                             .leading_icon("description".to_string())
                             .trailing_text("245 MB")
                             .min_leading_width(32.0)
@@ -429,7 +435,7 @@ impl ListWindow {
                             .on_click(|| println!("Documents clicked")),
                     )
                     .item(
-                        list_item("Music")
+                        ListItem::new("Music")
                             .leading_icon("music_note".to_string())
                             .trailing_text("3.4 GB")
                             .min_leading_width(32.0)
@@ -441,31 +447,31 @@ impl ListWindow {
 
             ui.vertical(|ui| {
                 ui.label("Compact Horizontal Spacing:");
-                let compact_spacing_list = list()
+                let compact_spacing_list = MaterialList::new()
                     .id("compact_spacing_list")
                     .item(
-                        list_item("Downloads")
+                        ListItem::new("Downloads")
                             .leading_icon("download".to_string())
                             .horizontal_title_gap(6.0)
                             .min_vertical_padding(6.0)
                             .on_click(|| println!("Downloads clicked")),
                     )
                     .item(
-                        list_item("Recent")
+                        ListItem::new("Recent")
                             .leading_icon("history".to_string())
                             .horizontal_title_gap(6.0)
                             .min_vertical_padding(6.0)
                             .on_click(|| println!("Recent clicked")),
                     )
                     .item(
-                        list_item("Shared")
+                        ListItem::new("Shared")
                             .leading_icon("people".to_string())
                             .horizontal_title_gap(6.0)
                             .min_vertical_padding(6.0)
                             .on_click(|| println!("Shared clicked")),
                     )
                     .item(
-                        list_item("Favorites")
+                        ListItem::new("Favorites")
                             .leading_icon("favorite".to_string())
                             .horizontal_title_gap(6.0)
                             .min_vertical_padding(6.0)
@@ -476,10 +482,10 @@ impl ListWindow {
 
             ui.vertical(|ui| {
                 ui.label("Ultra-Narrow (Combined):");
-                let ultra_narrow_list = list()
+                let ultra_narrow_list = MaterialList::new()
                     .id("ultra_narrow_list")
                     .item(
-                        list_item("Home")
+                        ListItem::new("Home")
                             .leading_icon("home".to_string())
                             .min_leading_width(28.0)
                             .horizontal_title_gap(4.0)
@@ -488,7 +494,7 @@ impl ListWindow {
                             .on_click(|| println!("Home clicked")),
                     )
                     .item(
-                        list_item("Work")
+                        ListItem::new("Work")
                             .leading_icon("work".to_string())
                             .min_leading_width(28.0)
                             .horizontal_title_gap(4.0)
@@ -497,7 +503,7 @@ impl ListWindow {
                             .on_click(|| println!("Work clicked")),
                     )
                     .item(
-                        list_item("Profile")
+                        ListItem::new("Profile")
                             .leading_icon("person".to_string())
                             .min_leading_width(28.0)
                             .horizontal_title_gap(4.0)
@@ -506,7 +512,7 @@ impl ListWindow {
                             .on_click(|| println!("Profile clicked")),
                     )
                     .item(
-                        list_item("Settings")
+                        ListItem::new("Settings")
                             .leading_icon("settings".to_string())
                             .min_leading_width(28.0)
                             .horizontal_title_gap(4.0)
@@ -520,10 +526,10 @@ impl ListWindow {
 
         ui.add_space(10.0);
         ui.label("Narrow list with secondary text:");
-        let narrow_two_line = list()
+        let narrow_two_line = MaterialList::new()
             .id("narrow_two_line_list")
             .item(
-                list_item("Inbox")
+                ListItem::new("Inbox")
                     .secondary_text("12 unread messages")
                     .leading_icon("mail".to_string())
                     .min_leading_width(32.0)
@@ -532,7 +538,7 @@ impl ListWindow {
                     .on_click(|| println!("Inbox clicked")),
             )
             .item(
-                list_item("Drafts")
+                ListItem::new("Drafts")
                     .secondary_text("3 drafts saved")
                     .leading_icon("edit".to_string())
                     .min_leading_width(32.0)
@@ -541,7 +547,7 @@ impl ListWindow {
                     .on_click(|| println!("Drafts clicked")),
             )
             .item(
-                list_item("Sent")
+                ListItem::new("Sent")
                     .secondary_text("Last sent 2 hours ago")
                     .leading_icon("send".to_string())
                     .min_leading_width(32.0)
@@ -555,14 +561,18 @@ impl ListWindow {
     fn render_selection_demo(&mut self, ui: &mut egui::Ui) {
         ui.heading("Selection Demo (Click to Toggle)");
 
-        let mut selection_list = list().id("selection_list");
+        let mut selection_list = MaterialList::new().id("selection_list");
 
         for i in 0..5 {
             let item_text = format!("Selectable Item {}", i + 1);
             let is_selected = self.selected_items[i];
 
-            let item = list_item(&item_text)
-                .leading_icon(if is_selected { "check_box".to_string() } else { "check_box_outline_blank".to_string() })
+            let item = ListItem::new(&item_text)
+                .leading_icon(if is_selected {
+                    "check_box".to_string()
+                } else {
+                    "check_box_outline_blank".to_string()
+                })
                 .selected(is_selected)
                 .on_click({
                     let _items = &mut self.selected_items;
@@ -577,7 +587,10 @@ impl ListWindow {
             selection_list = selection_list.item(item);
 
             // Handle selection toggle via UI interaction
-            if ui.add(MaterialButton::filled(format!("Toggle Item {}", i + 1)).small()).clicked() {
+            if ui
+                .add(MaterialButton::filled(format!("Toggle Item {}", i + 1)).small())
+                .clicked()
+            {
                 self.selected_items[i] = !self.selected_items[i];
             }
         }
@@ -591,15 +604,15 @@ impl ListWindow {
         ui.horizontal(|ui| {
             ui.vertical(|ui| {
                 ui.label("Standard");
-                let standard_list = list()
+                let standard_list = MaterialList::new()
                     .id("standard_list")
                     .item(
-                        list_item("Item 1")
+                        ListItem::new("Item 1")
                             .leading_icon("inbox".to_string())
                             .visual_density(VisualDensity::STANDARD),
                     )
                     .item(
-                        list_item("Item 2")
+                        ListItem::new("Item 2")
                             .leading_icon("star".to_string())
                             .visual_density(VisualDensity::STANDARD),
                     );
@@ -608,15 +621,15 @@ impl ListWindow {
 
             ui.vertical(|ui| {
                 ui.label("Comfortable");
-                let comfortable_list = list()
+                let comfortable_list = MaterialList::new()
                     .id("comfortable_list")
                     .item(
-                        list_item("Item 1")
+                        ListItem::new("Item 1")
                             .leading_icon("inbox".to_string())
                             .visual_density(VisualDensity::COMFORTABLE),
                     )
                     .item(
-                        list_item("Item 2")
+                        ListItem::new("Item 2")
                             .leading_icon("star".to_string())
                             .visual_density(VisualDensity::COMFORTABLE),
                     );
@@ -625,15 +638,15 @@ impl ListWindow {
 
             ui.vertical(|ui| {
                 ui.label("Compact");
-                let compact_list = list()
+                let compact_list = MaterialList::new()
                     .id("compact_list")
                     .item(
-                        list_item("Item 1")
+                        ListItem::new("Item 1")
                             .leading_icon("inbox".to_string())
                             .visual_density(VisualDensity::COMPACT),
                     )
                     .item(
-                        list_item("Item 2")
+                        ListItem::new("Item 2")
                             .leading_icon("star".to_string())
                             .visual_density(VisualDensity::COMPACT),
                     );
@@ -642,28 +655,179 @@ impl ListWindow {
         });
     }
 
+    fn render_drawer_demo(&mut self, ui: &mut egui::Ui) {
+        ui.heading("List with Selective Drawers");
+        ui.label("Click anywhere on the item (or the chevron) to expand/collapse drawer content");
+
+        let drawer_list = MaterialList::new()
+            .id("drawer_demo_list")
+            .allow_drawer(true)
+            .item(
+                ListItem::new("Project Alpha")
+                    .secondary_text("High priority")
+                    .leading_icon("folder".to_string())
+                    .drawer(|ui| {
+                        ui.label("Project Details:");
+                        ui.label("• Status: In Progress");
+                        ui.label("• Deadline: Next Friday");
+                        ui.label("• Team: 5 members");
+                        ui.label("• Budget: $50,000");
+                    }),
+            )
+            .item(
+                ListItem::new("Project Beta")
+                    .secondary_text("Medium priority")
+                    .leading_icon("folder_open".to_string())
+                    .drawer(|ui| {
+                        ui.label("Project Details:");
+                        ui.label("• Status: Planning");
+                        ui.label("• Deadline: Next month");
+                        ui.label("• Team: 3 members");
+                        ui.label("• Budget: $30,000");
+                    }),
+            )
+            .item(
+                ListItem::new("Regular Item")
+                    .secondary_text("No drawer content")
+                    .leading_icon("description".to_string()),
+            )
+            .item(
+                ListItem::new("Project Gamma")
+                    .secondary_text("Low priority")
+                    .leading_icon("folder_special".to_string())
+                    .drawer_if(true, |ui| {
+                        ui.label("Project Details:");
+                        ui.label("• Status: On Hold");
+                        ui.label("• Deadline: TBD");
+                        ui.label("• Team: 2 members");
+                        ui.label("• Budget: $15,000");
+                    }),
+            );
+
+        ui.add(drawer_list);
+
+        ui.add_space(10.0);
+        ui.label("Conditional Drawers (drawer_if):");
+        ui.label("Drawers shown only for active projects:");
+
+        let projects = vec![
+            ("Design System", "Active", true),
+            ("API Migration", "Completed", false),
+            ("Mobile App", "Active", true),
+            ("Documentation", "Pending", false),
+        ];
+
+        let conditional_drawer_list = MaterialList::new()
+            .id("conditional_drawer_list")
+            .allow_drawer(true);
+
+        let mut list = conditional_drawer_list;
+        for (name, status, is_active) in projects {
+            let item = ListItem::new(name)
+                .secondary_text(format!("Status: {}", status))
+                .leading_icon(if is_active {
+                    "task_alt".to_string()
+                } else {
+                    "radio_button_unchecked".to_string()
+                })
+                .drawer_if(is_active, |ui| {
+                    ui.label("Active Project Info:");
+                    ui.label("• Last updated: Today");
+                    ui.label("• Recent activity: 3 commits");
+                    ui.label("• Next milestone: In 2 weeks");
+                });
+            list = list.item(item);
+        }
+
+        ui.add(list);
+    }
+
+    fn render_text_indicator_drawer_demo(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Drawer with Text Indicators & 5-Line Items");
+        ui.label("Click anywhere to toggle. Icon labels show department names below folder icons.");
+
+        let list_id = egui::Id::new("text_indicator_drawer_list");
+
+        // Get current drawer state to determine which items are expanded
+        let state = ui
+            .data_mut(|d| d.get_persisted::<egui_material3::MaterialListState>(list_id))
+            .unwrap_or_default();
+
+        // Department data: (department, role, description)
+        let departments = vec![
+            (
+                "Engineering",
+                "Backend Development",
+                "Server infrastructure\nand API services",
+            ),
+            (
+                "Design",
+                "UI/UX Design",
+                "User interface design\nand user experience",
+            ),
+            (
+                "Marketing",
+                "Digital Marketing",
+                "Online campaigns\nand analytics",
+            ),
+            ("Sales", "Enterprise Sales", "B2B customer\nacquisition"),
+        ];
+
+        let mut list = MaterialList::new().id(list_id).allow_drawer(true);
+
+        for (index, (dept, role, desc)) in departments.iter().enumerate() {
+            let is_open = state.drawer_open_items.contains(&index);
+            let indicator = if is_open {
+                "Collapse ▼"
+            } else {
+                "Expand ▶"
+            };
+
+            // 5-line item: overline + primary + 2-line secondary + text indicator
+            // Icon label shows department name below the folder icon
+            let item = ListItem::new(*role)
+                .overline(*dept)
+                .secondary_text(*desc) // Contains \n for multi-line
+                .trailing_text(indicator)
+                .leading_icon("folder")
+                .leading_icon_label(*dept) // Department name below icon
+                .drawer(|ui| {
+                    ui.label("Department Details:");
+                    ui.label("• Team Size: 12 members");
+                    ui.label("• Active Projects: 3");
+                    ui.label("• Budget: $120,000");
+                    ui.label("• Location: Building A, Floor 2");
+                    ui.label("• Last Updated: Today at 3:45 PM");
+                });
+
+            list = list.item(item);
+        }
+
+        ui.add(list);
+    }
+
     fn render_real_world_examples(&mut self, ui: &mut egui::Ui) {
         ui.heading("Real-World Examples");
 
         ui.label("Settings List:");
-        let settings_list = list()
+        let settings_list = MaterialList::new()
             .id("settings_list")
             .item(
-                list_item("Wi-Fi")
+                ListItem::new("Wi-Fi")
                     .secondary_text("Connected to Network")
                     .leading_icon("wifi".to_string())
                     .trailing_icon("chevron_right".to_string())
                     .on_click(|| println!("Wi-Fi settings")),
             )
             .item(
-                list_item("Bluetooth")
+                ListItem::new("Bluetooth")
                     .secondary_text("Off")
                     .leading_icon("bluetooth".to_string())
                     .trailing_icon("chevron_right".to_string())
                     .on_click(|| println!("Bluetooth settings")),
             )
             .item(
-                list_item("Display")
+                ListItem::new("Display")
                     .secondary_text("Brightness & Sleep")
                     .leading_icon("brightness_6".to_string())
                     .trailing_icon("chevron_right".to_string())
@@ -674,10 +838,10 @@ impl ListWindow {
         ui.add_space(10.0);
 
         ui.label("Inbox List:");
-        let inbox_list = list()
+        let inbox_list = MaterialList::new()
             .id("inbox_list")
             .item(
-                list_item("Meeting Tomorrow")
+                ListItem::new("Meeting Tomorrow")
                     .overline("John Doe")
                     .secondary_text("Don't forget about the meeting at 10 AM")
                     .leading_icon("mail".to_string())
@@ -685,7 +849,7 @@ impl ListWindow {
                     .on_click(|| println!("Open email")),
             )
             .item(
-                list_item("Project Update")
+                ListItem::new("Project Update")
                     .overline("Manager")
                     .secondary_text("The project is progressing well")
                     .leading_icon("mail".to_string())
@@ -693,7 +857,7 @@ impl ListWindow {
                     .on_click(|| println!("Open email")),
             )
             .item(
-                list_item("Welcome!")
+                ListItem::new("Welcome!")
                     .overline("System")
                     .secondary_text("Thank you for joining our platform")
                     .leading_icon("mail_outline".to_string())
@@ -705,17 +869,17 @@ impl ListWindow {
         ui.add_space(10.0);
 
         ui.label("Music Playlist:");
-        let playlist = list()
+        let playlist = MaterialList::new()
             .id("playlist")
             .item(
-                list_item("Bohemian Rhapsody")
+                ListItem::new("Bohemian Rhapsody")
                     .secondary_text("Queen • A Night at the Opera")
                     .leading_icon("music_note".to_string())
                     .trailing_icon("more_vert".to_string())
                     .on_click(|| println!("Play song")),
             )
             .item(
-                list_item("Hotel California")
+                ListItem::new("Hotel California")
                     .secondary_text("Eagles • Hotel California")
                     .leading_icon("music_note".to_string())
                     .trailing_icon("more_vert".to_string())
@@ -723,12 +887,57 @@ impl ListWindow {
                     .on_click(|| println!("Play song")),
             )
             .item(
-                list_item("Stairway to Heaven")
+                ListItem::new("Stairway to Heaven")
                     .secondary_text("Led Zeppelin • Led Zeppelin IV")
                     .leading_icon("music_note".to_string())
                     .trailing_icon("more_vert".to_string())
                     .on_click(|| println!("Play song")),
             );
         ui.add(playlist);
+    }
+
+    fn render_full_width_example(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Full Width List");
+        ui.label("This list fills the available width using .fill_width(true)");
+
+        let visual_density = self.get_visual_density();
+
+        let full_width_list = MaterialList::new()
+            .id("full_width_list")
+            .fill_width(true)
+            .item(
+                ListItem::new("Dashboard")
+                    .secondary_text("View analytics and metrics")
+                    .leading_icon("dashboard".to_string())
+                    .trailing_icon("arrow_forward".to_string())
+                    .visual_density(visual_density)
+                    .on_click(|| println!("Dashboard clicked")),
+            )
+            .item(
+                ListItem::new("Reports")
+                    .secondary_text("Monthly performance reports")
+                    .leading_icon("assessment".to_string())
+                    .trailing_icon("arrow_forward".to_string())
+                    .visual_density(visual_density)
+                    .on_click(|| println!("Reports clicked")),
+            )
+            .item(
+                ListItem::new("Settings")
+                    .secondary_text("Configure application preferences")
+                    .leading_icon("settings".to_string())
+                    .trailing_icon("arrow_forward".to_string())
+                    .visual_density(visual_density)
+                    .on_click(|| println!("Settings clicked")),
+            )
+            .item(
+                ListItem::new("Account")
+                    .secondary_text("Manage your profile and billing")
+                    .leading_icon("account_circle".to_string())
+                    .trailing_icon("arrow_forward".to_string())
+                    .visual_density(visual_density)
+                    .on_click(|| println!("Account clicked")),
+            );
+
+        ui.add(full_width_list);
     }
 }

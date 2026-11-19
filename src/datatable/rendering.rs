@@ -1,26 +1,7 @@
-//! Material Design 3 Data Table Components
-//!
-//! # Performance Optimizations
-//!
-//! Data tables automatically cache expensive calculations for smooth scrolling:
-//! - **Layout caching**: Row heights and header heights are cached and only recalculated when data changes
-//! - **Refresh throttling**: Default 50ms throttle prevents excessive redraws during scrolling
-//! - **Smart invalidation**: Cache automatically invalidates when rows, columns, or sort order changes
-//!
-//! For large tables (100+ rows), these optimizations provide 5-10x faster scrolling.
-//! Use `.refresh_interval(0.0)` to disable throttling if needed.
-//!
-//! # M3 Color Role Usage
-//!
-//! - **surface**: Table background
-//! - **onSurface**: Table text, header text
-//! - **onSurfaceVariant**: Supporting text
-//! - **outlineVariant**: Cell borders, dividers
-//! - **surfaceContainerHighest**: Selected row background, header background
-//! - **State layers**: onSurface @ 8% (hover on rows)
+//! Rendering implementation for MaterialDataTable
 
-use crate::button::MaterialButton;
-use crate::theme::get_global_color;
+use super::{types::*, MaterialDataTable};
+use crate::{button::MaterialButton, theme::get_global_color};
 use egui::{
     ecolor::Color32,
     epaint::{CornerRadius, Stroke},
@@ -28,636 +9,23 @@ use egui::{
 };
 use std::collections::{HashMap, HashSet};
 
-/// Theme/styling configuration for MaterialDataTable
-#[derive(Clone, Debug)]
-pub struct DataTableTheme {
-    pub decoration: Option<Color32>,
-    pub heading_row_color: Option<Color32>,
-    pub heading_row_height: Option<f32>,
-    pub heading_text_style: Option<(FontId, Color32)>,
-    pub data_row_color: Option<Color32>,
-    pub data_row_min_height: Option<f32>,
-    pub data_row_max_height: Option<f32>,
-    pub data_text_style: Option<(FontId, Color32)>,
-    pub horizontal_margin: Option<f32>,
-    pub column_spacing: Option<f32>,
-    pub divider_thickness: Option<f32>,
-    pub divider_color: Option<Color32>,
-    pub checkbox_horizontal_margin: Option<f32>,
-    pub border_stroke: Option<Stroke>,
-    pub sort_active_color: Option<Color32>,
-    pub sort_inactive_color: Option<Color32>,
-    pub selected_row_color: Option<Color32>,
-    pub show_bottom_border: bool,
-    pub show_checkbox_column: bool,
-}
-
-impl Default for DataTableTheme {
-    fn default() -> Self {
-        Self {
-            decoration: None,
-            heading_row_color: None,
-            heading_row_height: Some(56.0),
-            heading_text_style: None,
-            data_row_color: None,
-            data_row_min_height: Some(52.0),
-            data_row_max_height: None,
-            data_text_style: None,
-            horizontal_margin: Some(24.0),
-            column_spacing: Some(56.0),
-            divider_thickness: Some(1.0),
-            divider_color: None,
-            checkbox_horizontal_margin: Some(16.0),
-            border_stroke: None,
-            sort_active_color: None,
-            sort_inactive_color: None,
-            selected_row_color: None,
-            show_bottom_border: true,
-            show_checkbox_column: true,
-        }
-    }
-}
-
-/// Column width specification
-#[derive(Clone, Debug, PartialEq)]
-pub enum ColumnWidth {
-    Fixed(f32),
-    Flex(f32),
-}
-
-impl Default for ColumnWidth {
-    fn default() -> Self {
-        ColumnWidth::Fixed(100.0)
-    }
-}
-
-/// Persistent state for a Material Design data table.
-///
-/// This structure maintains the state of the table including selections,
-/// sorting, and editing state across frames.
-#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
-pub struct DataTableState {
-    /// Selection state for each row (true if selected)
-    pub selected_rows: Vec<bool>,
-    /// State of the header checkbox (for select-all functionality)
-    pub header_checkbox: bool,
-    /// Sort states for each column by column name
-    pub column_sorts: HashMap<String, SortDirection>,
-    /// Index of the currently sorted column (if any)
-    pub sorted_column: Option<usize>,
-    /// Current sort direction for the sorted column
-    pub sort_direction: SortDirection,
-    /// Set of row indices currently being edited
-    pub editing_rows: std::collections::HashSet<usize>,
-    /// Temporary edit data for rows being edited (row_index -> cell_values)
-    pub edit_data: HashMap<usize, Vec<String>>,
-    /// Set of row indices with their drawer expanded
-    pub drawer_open_rows: HashSet<usize>,
-
-    // Performance optimizations - Option 1: Caching
-    /// Cached row heights to avoid recalculating text layout every frame
-    #[serde(skip)]
-    pub cached_row_heights: Vec<f32>,
-    /// Cached header height
-    #[serde(skip)]
-    pub cached_header_height: f32,
-    /// Cached sorted row indices (maps display order -> original row index)
-    #[serde(skip)]
-    pub cached_sorted_indices: Vec<usize>,
-    /// Hash of layout-affecting properties to detect when recalculation is needed
-    #[serde(skip)]
-    pub layout_cache_hash: u64,
-
-    // Performance optimizations - Option 2: Throttling
-    /// Last time the table was refreshed (in seconds since startup)
-    #[serde(skip)]
-    pub last_refresh_time: f64,
-}
-
-/// Response returned by the data table widget.
-///
-/// Contains both the standard egui Response and additional table-specific
-/// information about user interactions.
-#[derive(Debug)]
-pub struct DataTableResponse {
-    /// The standard egui widget response
-    pub response: Response,
-    /// Current selection state for each row
-    pub selected_rows: Vec<bool>,
-    /// Current state of the header checkbox
-    pub header_checkbox: bool,
-    /// Index of column that was clicked for sorting (if any)
-    pub column_clicked: Option<usize>,
-    /// Current sort state (column index, direction)
-    pub sort_state: (Option<usize>, SortDirection),
-    /// List of row actions performed (edit, delete, save)
-    pub row_actions: Vec<RowAction>,
-}
-
-/// Actions that can be performed on data table rows.
-#[derive(Debug, Clone)]
-pub enum RowAction {
-    /// User clicked edit button for the specified row
-    Edit(usize),
-    /// User clicked delete button for the specified row
-    Delete(usize),
-    /// User clicked save button for the specified row
-    Save(usize),
-    /// User clicked cancel button for the specified row
-    Cancel(usize),
-}
-
-/// Trait for providing data to a table lazily
-pub trait DataTableSource {
-    fn row_count(&self) -> usize;
-    fn get_row(&self, index: usize) -> Option<DataTableRow<'_>>;
-    fn is_row_count_approximate(&self) -> bool {
-        false
-    }
-    fn selected_row_count(&self) -> usize {
-        0
-    }
-}
-
-/// Material Design data table component.
-///
-/// Data tables display sets of data across rows and columns.
-/// They organize information in a way that's easy to scan.
-///
-/// ```
-/// # egui::__run_test_ui(|ui| {
-/// // Basic data table
-/// let mut table = MaterialDataTable::new()
-///     .column("Name", 120.0, false)
-///     .column("Age", 80.0, true)
-///     .column("City", 100.0, false);
-///
-/// table.row(|row| {
-///     row.cell("John Doe");
-///     row.cell("25");
-///     row.cell("New York");
-/// });
-///
-/// ui.add(table);
-/// # });
-/// ```
-#[must_use = "You should put this widget in a ui with `ui.add(widget);`"]
-pub struct MaterialDataTable<'a> {
-    columns: Vec<DataTableColumn>,
-    rows: Vec<DataTableRow<'a>>,
-    id: Option<Id>,
-    allow_selection: bool,
-    allow_drawer: bool,
-    drawer_row_height: Option<f32>,
-    sticky_header: bool,
-    progress_visible: bool,
-    corner_radius: CornerRadius,
-    sorted_column: Option<usize>,
-    sort_direction: SortDirection,
-    default_row_height: f32,
-    theme: DataTableTheme,
-    auto_height: bool,
-    /// Minimum time between full refreshes in seconds (0.0 = no throttling)
-    /// Set to 0.05-0.1 for smooth scrolling with large tables
-    refresh_interval: f32,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-#[derive(Default)]
-pub enum VAlign {
-    Top,
-    #[default]
-    Center,
-    Bottom,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-#[derive(Default)]
-pub enum HAlign {
-    #[default]
-    Left,
-    Center,
-    Right,
-}
-
-
-
-#[derive(Clone)]
-pub struct DataTableColumn {
-    /// Display title for the column header (can be text or widget closure)
-    pub title: String,
-    /// Optional widget builder for custom header content
-    #[allow(clippy::type_complexity)]
-    pub header_widget: Option<std::sync::Arc<dyn Fn(&mut Ui) + Send + Sync>>,
-    /// Fixed width of the column in pixels
-    pub width: f32,
-    /// Whether the column contains numeric data (affects alignment and sorting)
-    pub numeric: bool,
-    /// Whether this column can be sorted by clicking the header
-    pub sortable: bool,
-    /// Current sort direction for this column (if sorted)
-    pub sort_direction: Option<SortDirection>,
-    /// Horizontal alignment for column cells
-    pub h_align: HAlign,
-    /// Vertical alignment for column cells
-    pub v_align: VAlign,
-    /// Tooltip text for column header
-    pub tooltip: Option<String>,
-    /// Heading text alignment (separate from cell alignment)
-    pub heading_alignment: Option<HAlign>,
-    /// Column width specification
-    pub column_width: ColumnWidth,
-}
-
-#[derive(Clone, Debug, PartialEq, Hash, serde::Serialize, serde::Deserialize)]
-#[derive(Default)]
-pub enum SortDirection {
-    #[default]
-    Ascending,
-    Descending,
-}
-
-
-pub enum CellContent {
-    Text(WidgetText),
-    Widget(std::sync::Arc<dyn Fn(&mut Ui) + Send + Sync>),
-}
-
-pub struct DataTableCell {
-    pub content: CellContent,
-    pub h_align: Option<HAlign>,
-    pub v_align: Option<VAlign>,
-    pub placeholder: bool,
-    pub show_edit_icon: bool,
-}
-
-impl DataTableCell {
-    pub fn text(text: impl Into<WidgetText>) -> Self {
-        Self {
-            content: CellContent::Text(text.into()),
-            h_align: None,
-            v_align: None,
-            placeholder: false,
-            show_edit_icon: false,
-        }
-    }
-
-    pub fn widget<F>(f: F) -> Self
-    where
-        F: Fn(&mut Ui) + Send + Sync + 'static,
-    {
-        Self {
-            content: CellContent::Widget(std::sync::Arc::new(f)),
-            h_align: None,
-            v_align: None,
-            placeholder: false,
-            show_edit_icon: false,
-        }
-    }
-
-    pub fn h_align(mut self, align: HAlign) -> Self {
-        self.h_align = Some(align);
-        self
-    }
-
-    pub fn v_align(mut self, align: VAlign) -> Self {
-        self.v_align = Some(align);
-        self
-    }
-
-    pub fn placeholder(mut self, is_placeholder: bool) -> Self {
-        self.placeholder = is_placeholder;
-        self
-    }
-
-    pub fn show_edit_icon(mut self, show: bool) -> Self {
-        self.show_edit_icon = show;
-        self
-    }
-}
-
-pub struct DataTableRow<'a> {
-    cells: Vec<DataTableCell>,
-    selected: bool,
-    /// True only when `.selected()` was explicitly called.
-    /// Lets the table distinguish externally-managed rows from rows
-    /// whose selection is managed internally by click state.
-    selection_externally_set: bool,
-    readonly: bool,
-    id: Option<String>,
-    color: Option<Color32>,
-    on_hover: bool,
-    /// Optional drawer widget rendered below the row when expanded
-    #[allow(clippy::type_complexity)]
-    drawer: Option<std::sync::Arc<dyn Fn(&mut Ui) + Send + Sync>>,
-    _phantom: std::marker::PhantomData<&'a ()>,
-}
-
-impl<'a> Default for DataTableRow<'a> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<'a> DataTableRow<'a> {
-    pub fn new() -> Self {
-        Self {
-            cells: Vec::new(),
-            selected: false,
-            selection_externally_set: false,
-            readonly: false,
-            id: None,
-            color: None,
-            on_hover: true,
-            drawer: None,
-            _phantom: std::marker::PhantomData,
-        }
-    }
-
-    /// Add a text cell
-    pub fn cell(mut self, text: impl Into<WidgetText>) -> Self {
-        self.cells.push(DataTableCell::text(text));
-        self
-    }
-
-    /// Add a custom cell with full control
-    pub fn custom_cell(mut self, cell: DataTableCell) -> Self {
-        self.cells.push(cell);
-        self
-    }
-
-    /// Add a widget cell
-    pub fn widget_cell<F>(mut self, f: F) -> Self
-    where
-        F: Fn(&mut Ui) + Send + Sync + 'static,
-    {
-        self.cells.push(DataTableCell::widget(f));
-        self
-    }
-
-    pub fn selected(mut self, selected: bool) -> Self {
-        self.selected = selected;
-        self.selection_externally_set = true;
-        self
-    }
-
-    pub fn readonly(mut self, readonly: bool) -> Self {
-        self.readonly = readonly;
-        self
-    }
-
-    pub fn id(mut self, id: impl Into<String>) -> Self {
-        self.id = Some(id.into());
-        self
-    }
-
-    pub fn color(mut self, color: Color32) -> Self {
-        self.color = Some(color);
-        self
-    }
-
-    pub fn on_hover(mut self, hover: bool) -> Self {
-        self.on_hover = hover;
-        self
-    }
-
-    /// Set a drawer widget shown below this row when expanded.
-    /// A clickable arrow (> closed / v open) is displayed in the drawer column.
-    pub fn drawer<F>(mut self, f: F) -> Self
-    where
-        F: Fn(&mut Ui) + Send + Sync + 'static,
-    {
-        self.drawer = Some(std::sync::Arc::new(f));
-        self
-    }
-}
+// Responsive breakpoints for datatable sizing
+// Tables automatically scale fonts and padding based on total width
+const NARROW_THRESHOLD: f32 = 400.0; // Very narrow tables: 12px fonts, 12px padding
+const COMPACT_THRESHOLD: f32 = 500.0; // Compact tables: 14px fonts, 18px padding
+                                      // Wide tables (≥500px): 16px fonts, 24px padding (default)
 
 impl<'a> MaterialDataTable<'a> {
-    /// Create a new data table.
-    pub fn new() -> Self {
-        Self {
-            columns: Vec::new(),
-            rows: Vec::new(),
-            id: None,
-            allow_selection: false,
-            allow_drawer: false,
-            drawer_row_height: None,
-            sticky_header: false,
-            progress_visible: false,
-            corner_radius: CornerRadius::from(4.0),
-            sorted_column: None,
-            sort_direction: SortDirection::Ascending,
-            default_row_height: 52.0,
-            theme: DataTableTheme::default(),
-            auto_height: false,
-            refresh_interval: 0.05, // Default 50ms throttle for smooth scrolling
-        }
-    }
-
-    /// Set the initial sort column and direction
-    pub fn sort_by(mut self, column_index: usize, direction: SortDirection) -> Self {
-        self.sorted_column = Some(column_index);
-        self.sort_direction = direction;
-        self
-    }
-
-    /// Get current sorting state
-    pub fn get_sort_state(&self) -> (Option<usize>, SortDirection) {
-        (self.sorted_column, self.sort_direction.clone())
-    }
-
-    /// Set refresh throttle interval in seconds (0.0 = no throttling)
-    /// Recommended: 0.05-0.1 for smooth scrolling with large tables
-    pub fn refresh_interval(mut self, interval: f32) -> Self {
-        self.refresh_interval = interval;
-        self
-    }
-
-    /// Add a column to the data table.
-    pub fn column(mut self, title: impl Into<String>, width: f32, numeric: bool) -> Self {
-        self.columns.push(DataTableColumn {
-            title: title.into(),
-            header_widget: None,
-            width,
-            numeric,
-            sortable: true, // Make all columns sortable by default
-            sort_direction: None,
-            h_align: if numeric { HAlign::Right } else { HAlign::Left },
-            v_align: VAlign::Center,
-            tooltip: None,
-            heading_alignment: None,
-            column_width: ColumnWidth::Fixed(width),
-        });
-        self
-    }
-
-    /// Add a sortable column to the data table.
-    pub fn sortable_column(mut self, title: impl Into<String>, width: f32, numeric: bool) -> Self {
-        self.columns.push(DataTableColumn {
-            title: title.into(),
-            header_widget: None,
-            width,
-            numeric,
-            sortable: true,
-            sort_direction: None,
-            h_align: if numeric { HAlign::Right } else { HAlign::Left },
-            v_align: VAlign::Center,
-            tooltip: None,
-            heading_alignment: None,
-            column_width: ColumnWidth::Fixed(width),
-        });
-        self
-    }
-
-    pub fn sortable_column_with_align(
-        mut self,
-        title: impl Into<String>,
-        width: f32,
-        numeric: bool,
-        h_align: HAlign,
-        v_align: VAlign,
-    ) -> Self {
-        self.columns.push(DataTableColumn {
-            title: title.into(),
-            header_widget: None,
-            width,
-            numeric,
-            sortable: true,
-            sort_direction: None,
-            h_align,
-            v_align,
-            tooltip: None,
-            heading_alignment: None,
-            column_width: ColumnWidth::Fixed(width),
-        });
-        self
-    }
-
-    /// Add a column with custom alignment
-    pub fn column_with_align(
-        mut self,
-        title: impl Into<String>,
-        width: f32,
-        numeric: bool,
-        h_align: HAlign,
-        v_align: VAlign,
-    ) -> Self {
-        self.columns.push(DataTableColumn {
-            title: title.into(),
-            header_widget: None,
-            width,
-            numeric,
-            sortable: true,
-            sort_direction: None,
-            h_align,
-            v_align,
-            tooltip: None,
-            heading_alignment: None,
-            column_width: ColumnWidth::Fixed(width),
-        });
-        self
-    }
-
-    /// Set a tooltip for the most recently added column
-    pub fn column_tooltip(mut self, tooltip: impl Into<String>) -> Self {
-        if let Some(column) = self.columns.last_mut() {
-            column.tooltip = Some(tooltip.into());
-        }
-        self
-    }
-
-    /// Add a row using a builder pattern.
-    pub fn row<F>(mut self, f: F) -> Self
-    where
-        F: FnOnce(DataTableRow<'a>) -> DataTableRow<'a>,
-    {
-        let row = f(DataTableRow::new());
-        self.rows.push(row);
-        self
-    }
-
-    /// Set the ID for state persistence.
-    pub fn id(mut self, id: impl Into<Id>) -> Self {
-        self.id = Some(id.into());
-        self
-    }
-
-    /// Enable row selection.
-    pub fn allow_selection(mut self, allow: bool) -> Self {
-        self.allow_selection = allow;
-        self
-    }
-
-    /// Enable row drawers. Rows with a `.drawer()` closure will show a clickable
-    /// arrow (> closed, v open) that expands a panel below the row.
-    pub fn allow_drawer(mut self, allow: bool) -> Self {
-        self.allow_drawer = allow;
-        self
-    }
-
-    /// Set the fixed height of expanded drawer panels (default: automatic sizing).
-    /// If not set, drawer height will automatically adjust to fit its contents.
-    pub fn drawer_row_height(mut self, height: f32) -> Self {
-        self.drawer_row_height = Some(height);
-        self
-    }
-
-    /// Make the header sticky.
-    pub fn sticky_header(mut self, sticky: bool) -> Self {
-        self.sticky_header = sticky;
-        self
-    }
-
-    /// Show progress indicator.
-    pub fn show_progress(mut self, show: bool) -> Self {
-        self.progress_visible = show;
-        self
-    }
-
-    /// Set corner radius.
-    pub fn corner_radius(mut self, corner_radius: impl Into<CornerRadius>) -> Self {
-        self.corner_radius = corner_radius.into();
-        self
-    }
-
-    /// Set default row height in pixels.
-    /// This sets a fixed minimum height for all rows.
-    pub fn default_row_height(mut self, height: f32) -> Self {
-        self.default_row_height = height;
-        self.theme.data_row_min_height = Some(height);
-        self.auto_height = false;
-        self
-    }
-
-    /// Enable automatic row height calculation based on content.
-    /// Each row will size independently to fit its content.
-    /// You can still set a minimum height that will be respected.
-    pub fn auto_row_height(mut self, enabled: bool) -> Self {
-        self.auto_height = enabled;
-        if enabled {
-            // Set a minimal default height to allow content-based sizing
-            self.theme.data_row_min_height = Some(20.0);
-        }
-        self
-    }
-
-    /// Set minimum row height for auto-sizing mode.
-    /// Only effective when auto_row_height is enabled.
-    pub fn min_row_height(mut self, height: f32) -> Self {
-        self.theme.data_row_min_height = Some(height);
-        self
-    }
-
-    /// Set custom theme for this table.
-    pub fn theme(mut self, theme: DataTableTheme) -> Self {
-        self.theme = theme;
-        self
-    }
-
     fn get_table_style(&self) -> (Color32, Stroke) {
-        let md_surface = self.theme.decoration.unwrap_or_else(|| get_global_color("surface"));
+        let md_surface = self
+            .theme
+            .decoration
+            .unwrap_or_else(|| get_global_color("surface"));
         let md_outline = get_global_color("outline");
-        let border_stroke = self.theme.border_stroke.unwrap_or_else(|| Stroke::new(1.0_f32, md_outline));
+        let border_stroke = self
+            .theme
+            .border_stroke
+            .unwrap_or_else(|| Stroke::new(1.0, md_outline));
         (md_surface, border_stroke)
     }
 
@@ -741,7 +109,8 @@ impl<'a> MaterialDataTable<'a> {
             default_row_height,
             theme,
             auto_height,
-            refresh_interval: _,
+            refresh_interval,
+            compact_mode,
             ..
         } = self;
 
@@ -761,55 +130,57 @@ impl<'a> MaterialDataTable<'a> {
         default_row_height.to_bits().hash(&mut hasher);
 
         let current_layout_hash = hasher.finish();
-        let cache_is_valid = state.layout_cache_hash == current_layout_hash
-            && state.cached_row_heights.len() == rows.len()
-            && !should_throttle;
 
-        // Mark that we need to update the cache
-        let needs_cache_update = !cache_is_valid;
+        // Check if layout has changed (structural changes requiring recalculation)
+        let layout_changed = state.layout_cache_hash != current_layout_hash
+            || state.cached_row_heights.len() != rows.len();
 
-        // === PERFORMANCE OPTIMIZATION: Cached Sorting ===
-        // Sort rows if a column is selected for sorting
-        // Only re-sort if cache is invalid
-        if needs_cache_update {
-            if let Some(sort_col_idx) = state.sorted_column {
-                if let Some(sort_column) = columns.get(sort_col_idx) {
-                    rows.sort_by(|a, b| {
-                        let cell_a_text = a
-                            .cells
-                            .get(sort_col_idx)
-                            .and_then(|c| match &c.content {
-                                CellContent::Text(t) => Some(t.text()),
-                                CellContent::Widget(_) => None,
-                            })
-                            .unwrap_or("");
-                        let cell_b_text = b
-                            .cells
-                            .get(sort_col_idx)
-                            .and_then(|c| match &c.content {
-                                CellContent::Text(t) => Some(t.text()),
-                                CellContent::Widget(_) => None,
-                            })
-                            .unwrap_or("");
+        // Cache is valid if: layout hasn't changed AND (we have cached data OR we're throttling)
+        // When throttling, use cached data even if hash is 0 (from fresh state load)
+        let cache_is_valid = !layout_changed && (state.layout_cache_hash != 0 || should_throttle);
 
-                        let comparison = if sort_column.numeric {
-                            // Try to parse as numbers for numeric columns
-                            let a_num: f64 = cell_a_text.trim_start_matches('$').parse().unwrap_or(0.0);
-                            let b_num: f64 = cell_b_text.trim_start_matches('$').parse().unwrap_or(0.0);
-                            a_num
-                                .partial_cmp(&b_num)
-                                .unwrap_or(std::cmp::Ordering::Equal)
-                        } else {
-                            // Alphabetical comparison for text columns
-                            cell_a_text.cmp(cell_b_text)
-                        };
+        // Update cache only when layout changed AND not throttling
+        let needs_cache_update = layout_changed && !should_throttle;
 
-                        match state.sort_direction {
-                            SortDirection::Ascending => comparison,
-                            SortDirection::Descending => comparison.reverse(),
-                        }
-                    });
-                }
+        // === SORTING: Apply sorting whenever a column is selected ===
+        // Sorting must happen on every frame (not cached) because rows come in original order
+        if let Some(sort_col_idx) = state.sorted_column {
+            if let Some(sort_column) = columns.get(sort_col_idx) {
+                rows.sort_by(|a, b| {
+                    let cell_a_text = a
+                        .cells
+                        .get(sort_col_idx)
+                        .and_then(|c| match &c.content {
+                            CellContent::Text(t) => Some(t.text()),
+                            CellContent::Widget(_) => None,
+                        })
+                        .unwrap_or("");
+                    let cell_b_text = b
+                        .cells
+                        .get(sort_col_idx)
+                        .and_then(|c| match &c.content {
+                            CellContent::Text(t) => Some(t.text()),
+                            CellContent::Widget(_) => None,
+                        })
+                        .unwrap_or("");
+
+                    let comparison = if sort_column.numeric {
+                        // Try to parse as numbers for numeric columns
+                        let a_num: f64 = cell_a_text.trim_start_matches('$').parse().unwrap_or(0.0);
+                        let b_num: f64 = cell_b_text.trim_start_matches('$').parse().unwrap_or(0.0);
+                        a_num
+                            .partial_cmp(&b_num)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                    } else {
+                        // Alphabetical comparison for text columns
+                        cell_a_text.cmp(cell_b_text)
+                    };
+
+                    match state.sort_direction {
+                        SortDirection::Ascending => comparison,
+                        SortDirection::Descending => comparison.reverse(),
+                    }
+                });
             }
         }
 
@@ -817,22 +188,62 @@ impl<'a> MaterialDataTable<'a> {
         // Use the data-columns width to decide whether to use compact special-column widths:
         // when the total table width would be < 500px, minimize checkbox/arrow padding.
         let columns_only_width: f32 = columns.iter().map(|col| col.width).sum();
-        let base_checkbox_width = if allow_selection && theme.show_checkbox_column { 48.0 } else { 0.0 };
+        let base_checkbox_width = if allow_selection && theme.show_checkbox_column {
+            48.0
+        } else {
+            0.0
+        };
         let base_drawer_arrow_width = if allow_drawer { 32.0 } else { 0.0 };
         let is_narrow = base_checkbox_width + base_drawer_arrow_width + columns_only_width < 500.0;
         let checkbox_width = if allow_selection && theme.show_checkbox_column {
-            if is_narrow { 32.0 } else { 48.0 }
+            if is_narrow {
+                32.0
+            } else {
+                48.0
+            }
         } else {
             0.0
         };
         let drawer_arrow_width = if allow_drawer {
-            if is_narrow { 20.0 } else { 32.0 }
+            if is_narrow {
+                20.0
+            } else {
+                32.0
+            }
         } else {
             0.0
         };
         let total_width = checkbox_width + drawer_arrow_width + columns_only_width;
         let min_row_height = theme.data_row_min_height.unwrap_or(default_row_height);
-        let min_header_height = theme.heading_row_height.unwrap_or(56.0);
+
+        // Determine effective width for responsive calculations
+        // This allows overriding automatic detection with compact_mode
+        let effective_width = match compact_mode {
+            CompactMode::Auto => total_width,
+            CompactMode::ForceNarrow => 300.0, // Below NARROW_THRESHOLD (400px)
+            CompactMode::ForceCompact => 450.0, // Between NARROW_THRESHOLD and COMPACT_THRESHOLD
+            CompactMode::ForceWide => 600.0,   // Above COMPACT_THRESHOLD (500px)
+        };
+
+        // Responsive header height: scale down for narrow tables
+        let base_header_height = theme.heading_row_height.unwrap_or(56.0);
+        let min_header_height = if effective_width < NARROW_THRESHOLD {
+            base_header_height * 0.714 // 40px for very narrow (< 400px)
+        } else if effective_width < COMPACT_THRESHOLD {
+            base_header_height * 0.857 // 48px for compact (< 500px)
+        } else {
+            base_header_height // 56px for normal (≥ 500px)
+        };
+
+        // Responsive padding: reduce padding for narrow tables
+        // This is used for header/cell padding and spacing around icons
+        let responsive_padding = if effective_width < NARROW_THRESHOLD {
+            32.0 // Reduced padding for very narrow tables
+        } else if effective_width < COMPACT_THRESHOLD {
+            40.0 // Medium padding for compact tables
+        } else {
+            48.0 // Full padding for normal tables
+        };
 
         // === PERFORMANCE OPTIMIZATION: Cached Header Height ===
         // Calculate header height with text wrapping (use cache if valid)
@@ -840,9 +251,21 @@ impl<'a> MaterialDataTable<'a> {
             state.cached_header_height
         } else {
             let mut h: f32 = min_header_height;
+
+            // Responsive header font size: scale down for narrow tables
+            let base_header_font_size = theme.header_font_size.unwrap_or(16.0);
+            let responsive_header_font_size = if effective_width < NARROW_THRESHOLD {
+                base_header_font_size * 0.75 // 12px for very narrow
+            } else if effective_width < COMPACT_THRESHOLD {
+                base_header_font_size * 0.875 // 14px for compact
+            } else {
+                base_header_font_size // 16px for normal
+            };
+
             for column in &columns {
-                let available_width = column.width - 48.0; // Account for padding and sort icon
-                let header_font = FontId::new(16.0, FontFamily::Proportional);
+                let available_width = column.width - responsive_padding; // Account for padding and sort icon
+                let header_font =
+                    FontId::new(responsive_header_font_size, FontFamily::Proportional);
 
                 let galley = ui.painter().layout_job(egui::text::LayoutJob {
                     text: column.title.clone(),
@@ -874,79 +297,93 @@ impl<'a> MaterialDataTable<'a> {
 
         // === PERFORMANCE OPTIMIZATION: Cached Row Heights ===
         // Calculate individual row heights based on content (use cache if valid)
-        let row_heights: Vec<f32> = if cache_is_valid && state.cached_row_heights.len() == rows.len() {
-            // Use cached row heights for maximum performance
-            state.cached_row_heights.clone()
-        } else {
-            // Recalculate row heights and cache them
-            let mut heights = Vec::new();
-            for row in &rows {
-                // In auto_height mode, start with a minimal height, otherwise use min_row_height
-                let base_height = if auto_height { 20.0 } else { min_row_height };
-                let mut max_height: f32 = base_height;
+        let row_heights: Vec<f32> =
+            if cache_is_valid && state.cached_row_heights.len() == rows.len() {
+                // Use cached row heights for maximum performance
+                state.cached_row_heights.clone()
+            } else {
+                // Recalculate row heights and cache them
+                let mut heights = Vec::new();
+                for row in &rows {
+                    // In auto_height mode, start with a minimal height, otherwise use min_row_height
+                    let base_height = if auto_height { 20.0 } else { min_row_height };
+                    let mut max_height: f32 = base_height;
 
-                for (cell_idx, cell) in row.cells.iter().enumerate() {
-                    if let Some(column) = columns.get(cell_idx) {
-                        match &cell.content {
-                            CellContent::Text(cell_text) => {
-                                let available_width = column.width - 32.0;
-                                let cell_font = if let Some((ref font_id, _)) = theme.data_text_style {
-                                    font_id.clone()
-                                } else {
-                                    FontId::new(14.0, FontFamily::Proportional)
-                                };
+                    for (cell_idx, cell) in row.cells.iter().enumerate() {
+                        if let Some(column) = columns.get(cell_idx) {
+                            match &cell.content {
+                                CellContent::Text(cell_text) => {
+                                    let available_width = column.width - 32.0;
 
-                                let galley = ui.painter().layout_job(egui::text::LayoutJob {
-                                    text: cell_text.text().to_string(),
-                                    sections: vec![egui::text::LayoutSection {
-                                        leading_space: 0.0,
-                                        byte_range: 0..cell_text.text().len(),
-                                        format: egui::TextFormat {
-                                            font_id: cell_font,
-                                            color: get_global_color("onSurface"),
+                                    // Use responsive font size (same as rendering)
+                                    let base_cell_font_size =
+                                        if let Some((ref font_id, _)) = theme.data_text_style {
+                                            font_id.size
+                                        } else {
+                                            14.0
+                                        };
+                                    let responsive_cell_font_size =
+                                        if effective_width < NARROW_THRESHOLD {
+                                            base_cell_font_size * 0.75
+                                        } else if effective_width < COMPACT_THRESHOLD {
+                                            base_cell_font_size * 0.875
+                                        } else {
+                                            base_cell_font_size
+                                        };
+                                    let cell_font = FontId::new(
+                                        responsive_cell_font_size,
+                                        FontFamily::Proportional,
+                                    );
+
+                                    let galley = ui.painter().layout_job(egui::text::LayoutJob {
+                                        text: cell_text.text().to_string(),
+                                        sections: vec![egui::text::LayoutSection {
+                                            leading_space: 0.0,
+                                            byte_range: 0..cell_text.text().len(),
+                                            format: egui::TextFormat {
+                                                font_id: cell_font,
+                                                color: get_global_color("onSurface"),
+                                                ..Default::default()
+                                            },
+                                        }],
+                                        wrap: egui::text::TextWrapping {
+                                            max_width: available_width,
                                             ..Default::default()
                                         },
-                                    }],
-                                    wrap: egui::text::TextWrapping {
-                                        max_width: available_width,
-                                        ..Default::default()
-                                    },
-                                    break_on_newline: true,
-                                    halign: egui::Align::LEFT, // Always left-align within galley; positioning handles cell alignment
-                                    justify: false,
-                                    first_row_min_height: 0.0,
-                                    round_output_to_gui: true,
-                                });
+                                        break_on_newline: true,
+                                        halign: egui::Align::LEFT, // Always left-align within galley; positioning handles cell alignment
+                                        justify: false,
+                                        first_row_min_height: 0.0,
+                                        round_output_to_gui: true,
+                                    });
 
-                                let content_height: f32 = galley.size().y + 16.0; // Add padding
-                                max_height = max_height.max(content_height);
-                            }
-                            CellContent::Widget(_) => {
-                                // For widgets, use minimum height - they will size themselves
-                                // In auto mode, don't force a minimum for widget rows
-                                if !auto_height {
-                                    max_height = max_height.max(min_row_height);
+                                    let content_height: f32 = galley.size().y + 16.0; // Add padding
+                                    max_height = max_height.max(content_height);
+                                }
+                                CellContent::Widget(_) => {
+                                    // For widgets, use minimum height - they will size themselves
+                                    // In auto mode, don't force a minimum for widget rows
+                                    if !auto_height {
+                                        max_height = max_height.max(min_row_height);
+                                    }
                                 }
                             }
                         }
                     }
-                }
 
-                // Apply minimum height constraint
-                let final_height = max_height.max(min_row_height);
-                heights.push(final_height);
-            }
-            heights
-        };
+                    // Apply minimum height constraint
+                    let final_height = max_height.max(min_row_height);
+                    heights.push(final_height);
+                }
+                heights
+            };
 
         // Calculate drawer heights for open rows (0.0 when closed)
         let drawer_heights: Vec<f32> = rows
             .iter()
             .enumerate()
             .map(|(row_idx, row)| {
-                if allow_drawer
-                    && row.drawer.is_some()
-                    && state.drawer_open_rows.contains(&row_idx)
+                if allow_drawer && row.drawer.is_some() && state.drawer_open_rows.contains(&row_idx)
                 {
                     // Use fixed height if specified, otherwise check cached height from previous frame
                     if let Some(fixed_height) = drawer_row_height {
@@ -954,7 +391,9 @@ impl<'a> MaterialDataTable<'a> {
                     } else {
                         // Try to get cached height from previous frame's rendering
                         let cached_height = ui.data(|data| {
-                            data.get_temp::<f32>(table_id.with(format!("drawer_height_{}", row_idx)))
+                            data.get_temp::<f32>(
+                                table_id.with(format!("drawer_height_{}", row_idx)),
+                            )
                         });
                         cached_height.unwrap_or(120.0) // Default to 120 if not cached yet
                     }
@@ -964,9 +403,8 @@ impl<'a> MaterialDataTable<'a> {
             })
             .collect();
 
-        let total_height = header_height
-            + row_heights.iter().sum::<f32>()
-            + drawer_heights.iter().sum::<f32>();
+        let total_height =
+            header_height + row_heights.iter().sum::<f32>() + drawer_heights.iter().sum::<f32>();
 
         // Collect all row actions from this frame
         let mut all_row_actions: Vec<RowAction> = Vec::new();
@@ -1017,7 +455,9 @@ impl<'a> MaterialDataTable<'a> {
 
             // Draw header
             let header_rect = Rect::from_min_size(rect.min, Vec2::new(total_width, header_height));
-            let header_bg = theme.heading_row_color.unwrap_or_else(|| get_global_color("surfaceVariant"));
+            let header_bg = theme
+                .heading_row_color
+                .unwrap_or_else(|| get_global_color("surfaceVariant"));
             ui.painter()
                 .rect_filled(header_rect, CornerRadius::ZERO, header_bg);
 
@@ -1101,8 +541,19 @@ impl<'a> MaterialDataTable<'a> {
                 );
 
                 // Render header text with wrapping support
-                let available_width = column.width - 48.0; // Account for padding and sort icon
-                let header_font = FontId::new(16.0, FontFamily::Proportional);
+                let available_width = column.width - responsive_padding; // Account for padding and sort icon
+
+                // Use responsive font size (same calculation as header height computation)
+                let base_header_font_size = theme.header_font_size.unwrap_or(16.0);
+                let responsive_header_font_size = if effective_width < NARROW_THRESHOLD {
+                    base_header_font_size * 0.75 // 12px for very narrow
+                } else if effective_width < COMPACT_THRESHOLD {
+                    base_header_font_size * 0.875 // 14px for compact
+                } else {
+                    base_header_font_size // 16px for normal
+                };
+                let header_font =
+                    FontId::new(responsive_header_font_size, FontFamily::Proportional);
 
                 let galley = ui.painter().layout_job(egui::text::LayoutJob {
                     text: column.title.clone(),
@@ -1137,13 +588,14 @@ impl<'a> MaterialDataTable<'a> {
                 // Handle column header clicks for sorting
                 if column.sortable {
                     let header_click_id = table_id.with(format!("column_header_{}", col_idx));
-                    let mut header_response = ui.interact(col_rect, header_click_id, Sense::click());
-                    
+                    let mut header_response =
+                        ui.interact(col_rect, header_click_id, Sense::click());
+
                     // Show tooltip if available
                     if let Some(ref tooltip) = column.tooltip {
                         header_response = header_response.on_hover_text(tooltip);
                     }
-                    
+
                     if header_response.clicked() {
                         // Handle sorting logic
                         if state.sorted_column == Some(col_idx) {
@@ -1179,9 +631,13 @@ impl<'a> MaterialDataTable<'a> {
 
                     // Draw sort arrow with enhanced visual feedback
                     let arrow_color = if is_sorted {
-                        theme.sort_active_color.unwrap_or_else(|| get_global_color("primary")) // Highlight active sort column
+                        theme
+                            .sort_active_color
+                            .unwrap_or_else(|| get_global_color("primary")) // Highlight active sort column
                     } else {
-                        theme.sort_inactive_color.unwrap_or_else(|| get_global_color("onSurfaceVariant"))
+                        theme
+                            .sort_inactive_color
+                            .unwrap_or_else(|| get_global_color("onSurfaceVariant"))
                     };
 
                     let center = icon_rect.center();
@@ -1286,12 +742,14 @@ impl<'a> MaterialDataTable<'a> {
                 );
 
                 let row_selected = state.selected_rows.get(row_idx).copied().unwrap_or(false);
-                
+
                 // Determine row background color with priority: custom color > selected > readonly > alternating
                 let row_bg = if let Some(custom_color) = row.color {
                     custom_color
                 } else if row_selected {
-                    theme.selected_row_color.unwrap_or_else(|| get_global_color("primaryContainer"))
+                    theme
+                        .selected_row_color
+                        .unwrap_or_else(|| get_global_color("primaryContainer"))
                 } else if row.readonly {
                     // Subtle background for readonly rows
                     let surface_variant = get_global_color("surfaceVariant");
@@ -1302,14 +760,16 @@ impl<'a> MaterialDataTable<'a> {
                         (surface_variant.a() as f32 * 0.3) as u8,
                     )
                 } else if row_idx % 2 == 1 {
-                    theme.data_row_color.unwrap_or_else(|| get_global_color("surfaceVariant"))
+                    theme
+                        .data_row_color
+                        .unwrap_or_else(|| get_global_color("surfaceVariant"))
                 } else {
                     background_color
                 };
 
                 ui.painter()
                     .rect_filled(row_rect, CornerRadius::ZERO, row_bg);
-                    
+
                 // Draw divider below row — skip when a drawer immediately follows
                 let row_has_open_drawer = allow_drawer
                     && row.drawer.is_some()
@@ -1317,7 +777,9 @@ impl<'a> MaterialDataTable<'a> {
                 if !row_has_open_drawer && (row_idx < rows.len() - 1 || theme.show_bottom_border) {
                     let divider_y = current_y + row_height;
                     let divider_thickness = theme.divider_thickness.unwrap_or(1.0);
-                    let divider_color = theme.divider_color.unwrap_or_else(|| get_global_color("outlineVariant"));
+                    let divider_color = theme
+                        .divider_color
+                        .unwrap_or_else(|| get_global_color("outlineVariant"));
                     ui.painter().line_segment(
                         [
                             egui::pos2(rect.min.x, divider_y),
@@ -1435,14 +897,10 @@ impl<'a> MaterialDataTable<'a> {
                                 center + Vec2::new(0.0, 3.0),
                                 center + Vec2::new(5.0, -3.0),
                             ];
-                            ui.painter().line_segment(
-                                [pts[0], pts[1]],
-                                Stroke::new(2.0_f32, arrow_color),
-                            );
-                            ui.painter().line_segment(
-                                [pts[1], pts[2]],
-                                Stroke::new(2.0_f32, arrow_color),
-                            );
+                            ui.painter()
+                                .line_segment([pts[0], pts[1]], Stroke::new(2.0, arrow_color));
+                            ui.painter()
+                                .line_segment([pts[1], pts[2]], Stroke::new(2.0, arrow_color));
                         } else {
                             // Right chevron: >
                             let pts = [
@@ -1450,19 +908,14 @@ impl<'a> MaterialDataTable<'a> {
                                 center + Vec2::new(3.0, 0.0),
                                 center + Vec2::new(-3.0, 5.0),
                             ];
-                            ui.painter().line_segment(
-                                [pts[0], pts[1]],
-                                Stroke::new(2.0_f32, arrow_color),
-                            );
-                            ui.painter().line_segment(
-                                [pts[1], pts[2]],
-                                Stroke::new(2.0_f32, arrow_color),
-                            );
+                            ui.painter()
+                                .line_segment([pts[0], pts[1]], Stroke::new(2.0, arrow_color));
+                            ui.painter()
+                                .line_segment([pts[1], pts[2]], Stroke::new(2.0, arrow_color));
                         }
 
                         let arrow_id = table_id.with(format!("drawer_arrow_{}", row_idx));
-                        let arrow_response =
-                            ui.interact(arrow_area_rect, arrow_id, Sense::click());
+                        let arrow_response = ui.interact(arrow_area_rect, arrow_id, Sense::click());
                         if arrow_response.clicked() {
                             if is_open {
                                 state.drawer_open_rows.remove(&row_idx);
@@ -1501,24 +954,36 @@ impl<'a> MaterialDataTable<'a> {
                                     .id_salt(format!("actions_scroll_{}", row_idx))
                                     .auto_shrink([false, true])
                                     .show(ui, |ui| {
-                                    ui.horizontal(|ui| {
-                                        if is_row_editing {
-                                            if ui.add(MaterialButton::filled("Save").small()).clicked() {
-                                                row_actions.push(RowAction::Save(row_idx));
+                                        ui.horizontal(|ui| {
+                                            if is_row_editing {
+                                                if ui
+                                                    .add(MaterialButton::filled("Save").small())
+                                                    .clicked()
+                                                {
+                                                    row_actions.push(RowAction::Save(row_idx));
+                                                }
+                                                if ui
+                                                    .add(MaterialButton::filled("Cancel").small())
+                                                    .clicked()
+                                                {
+                                                    row_actions.push(RowAction::Cancel(row_idx));
+                                                }
+                                            } else {
+                                                if ui
+                                                    .add(MaterialButton::filled("Edit").small())
+                                                    .clicked()
+                                                {
+                                                    row_actions.push(RowAction::Edit(row_idx));
+                                                }
+                                                if ui
+                                                    .add(MaterialButton::filled("Delete").small())
+                                                    .clicked()
+                                                {
+                                                    row_actions.push(RowAction::Delete(row_idx));
+                                                }
                                             }
-                                            if ui.add(MaterialButton::filled("Cancel").small()).clicked() {
-                                                row_actions.push(RowAction::Cancel(row_idx));
-                                            }
-                                        } else {
-                                            if ui.add(MaterialButton::filled("Edit").small()).clicked() {
-                                                row_actions.push(RowAction::Edit(row_idx));
-                                            }
-                                            if ui.add(MaterialButton::filled("Delete").small()).clicked() {
-                                                row_actions.push(RowAction::Delete(row_idx));
-                                            }
-                                        }
+                                        });
                                     });
-                                });
                             });
                         } else if is_row_editing {
                             // Render editable text field
@@ -1565,12 +1030,27 @@ impl<'a> MaterialDataTable<'a> {
 
                                     // Render normal text with alignment
                                     let available_width = column.width - 32.0; // Account for padding
-                                    let cell_font = if let Some((ref font_id, _)) = theme.data_text_style {
-                                        font_id.clone()
-                                    } else {
-                                        FontId::new(14.0, FontFamily::Proportional)
-                                    };
-                                    
+
+                                    // Use responsive font size (same calculation as header font size)
+                                    let base_cell_font_size =
+                                        if let Some((ref font_id, _)) = theme.data_text_style {
+                                            font_id.size
+                                        } else {
+                                            14.0
+                                        };
+                                    let responsive_cell_font_size =
+                                        if effective_width < NARROW_THRESHOLD {
+                                            base_cell_font_size * 0.75 // e.g., 10.5px for very narrow
+                                        } else if effective_width < COMPACT_THRESHOLD {
+                                            base_cell_font_size * 0.875 // e.g., 12.25px for compact
+                                        } else {
+                                            base_cell_font_size // e.g., 14px for normal
+                                        };
+                                    let cell_font = FontId::new(
+                                        responsive_cell_font_size,
+                                        FontFamily::Proportional,
+                                    );
+
                                     let text_color = if cell.placeholder {
                                         let base_color = get_global_color("onSurface");
                                         Color32::from_rgba_premultiplied(
@@ -1629,13 +1109,44 @@ impl<'a> MaterialDataTable<'a> {
                                         }
                                     };
 
+                                    // Check tooltip settings before painting
+                                    // (need galley size before it's moved)
+                                    let text_width = galley.size().x;
+                                    let should_show_tooltip = if theme.enable_cell_tooltips {
+                                        // Always show tooltips when explicitly enabled
+                                        true
+                                    } else if theme.smart_cell_tooltips {
+                                        // Only show tooltip if text is truncated (wider than available space)
+                                        text_width > available_width
+                                    } else {
+                                        // Tooltips disabled
+                                        false
+                                    };
+
                                     let text_pos = egui::pos2(text_x, text_y);
-                                    ui.painter().galley(
-                                        text_pos,
-                                        galley,
-                                        text_color,
-                                    );
-                                    
+                                    ui.painter().galley(text_pos, galley, text_color);
+
+                                    if should_show_tooltip {
+                                        let cell_interact_id =
+                                            table_id.with(format!("cell_{}_{}", row_idx, cell_idx));
+                                        let cell_response = ui.interact(
+                                            cell_rect,
+                                            cell_interact_id,
+                                            Sense::hover(),
+                                        );
+                                        if cell_response.hovered() {
+                                            use crate::tooltip::{
+                                                show_tooltip_on_hover, TooltipPosition,
+                                            };
+                                            show_tooltip_on_hover(
+                                                ui,
+                                                &cell_response,
+                                                cell_text.text(),
+                                                TooltipPosition::Auto,
+                                            );
+                                        }
+                                    }
+
                                     // Draw edit icon if requested
                                     if cell.show_edit_icon {
                                         let icon_size = 16.0;
@@ -1756,13 +1267,32 @@ impl<'a> MaterialDataTable<'a> {
                             let table_clip_rect = rect.intersect(old_clip_rect);
                             ui.set_clip_rect(table_clip_rect);
 
-                            // Drawer background: slightly tinted surface
-                            let drawer_bg = get_global_color("surfaceVariant");
-                            ui.painter().rect_filled(
-                                drawer_rect,
-                                CornerRadius::ZERO,
-                                drawer_bg,
-                            );
+                            // Drawer background: match the row color above
+                            // Recalculate row_bg using same logic as row rendering (lines 675-696)
+                            let drawer_bg = if let Some(custom_color) = row.color {
+                                custom_color
+                            } else if row_selected {
+                                theme
+                                    .selected_row_color
+                                    .unwrap_or_else(|| get_global_color("primaryContainer"))
+                            } else if row.readonly {
+                                // Subtle background for readonly rows
+                                let surface_variant = get_global_color("surfaceVariant");
+                                Color32::from_rgba_premultiplied(
+                                    surface_variant.r(),
+                                    surface_variant.g(),
+                                    surface_variant.b(),
+                                    (surface_variant.a() as f32 * 0.3) as u8,
+                                )
+                            } else if row_idx % 2 == 1 {
+                                theme
+                                    .data_row_color
+                                    .unwrap_or_else(|| get_global_color("surfaceVariant"))
+                            } else {
+                                background_color
+                            };
+                            ui.painter()
+                                .rect_filled(drawer_rect, CornerRadius::ZERO, drawer_bg);
 
                             // Left accent stripe in primary color
                             let primary = get_global_color("primary");
@@ -1790,7 +1320,7 @@ impl<'a> MaterialDataTable<'a> {
                                 egui::UiBuilder::new()
                                     .max_rect(content_rect)
                                     .layout(egui::Layout::top_down(egui::Align::LEFT))
-                                    .id_salt(format!("drawer_{}", row_idx))
+                                    .id_salt(format!("drawer_{}", row_idx)),
                             );
                             child_ui.set_clip_rect(clipped_rect);
 
@@ -1804,7 +1334,10 @@ impl<'a> MaterialDataTable<'a> {
                             if drawer_row_height.is_none() {
                                 let actual_height = child_ui.min_rect().height().max(40.0) + 24.0;
                                 ui.data_mut(|data| {
-                                    data.insert_temp(table_id.with(format!("drawer_height_{}", row_idx)), actual_height);
+                                    data.insert_temp(
+                                        table_id.with(format!("drawer_height_{}", row_idx)),
+                                        actual_height,
+                                    );
                                 });
                             }
 
@@ -1899,19 +1432,8 @@ impl<'a> MaterialDataTable<'a> {
     }
 }
 
-impl<'a> Default for MaterialDataTable<'a> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Widget for MaterialDataTable<'_> {
     fn ui(self, ui: &mut Ui) -> Response {
         self.show(ui).response
     }
-}
-
-/// Convenience function to create a new data table.
-pub fn data_table() -> MaterialDataTable<'static> {
-    MaterialDataTable::new()
 }

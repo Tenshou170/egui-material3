@@ -748,7 +748,6 @@ impl Widget for MaterialSnackbarWithOffset<'_> {
             + label_padding.x
             + action_padding.x;
         let md3_max_width = 672.0_f32;
-
         let snackbar_width = if let Some(custom_width) = width {
             if is_floating {
                 custom_width.min(md3_max_width).min(available_ui_width)
@@ -809,17 +808,19 @@ impl Widget for MaterialSnackbarWithOffset<'_> {
                 current_x,
                 snackbar_rect.center().y - icon_galley.size().y / 2.0,
             );
-            ui.painter().galley(icon_pos, icon_galley.clone(), label_text_color);
+            ui.painter()
+                .galley(icon_pos, icon_galley.clone(), label_text_color);
             current_x += icon_galley.size().x + 16.0; // icon + spacing
         }
 
         // Draw message text
         let text_pos = egui::pos2(current_x, snackbar_rect.min.y + label_padding.y);
-        ui.painter().galley(text_pos, text_galley.clone(), label_text_color);
+        ui.painter()
+            .galley(text_pos, text_galley.clone(), label_text_color);
 
         // Calculate action and close icon area width
         let action_and_icon_width = action_width + close_icon_width;
-        let will_overflow_action = 
+        let will_overflow_action =
             action_and_icon_width / snackbar_width > action_overflow_threshold;
 
         // Handle action button if present
@@ -884,12 +885,9 @@ impl Widget for MaterialSnackbarWithOffset<'_> {
         let mut close_clicked = false;
         if show_close_icon {
             let close_icon_color = close_icon_color.unwrap_or(default_close_icon_color);
-            
+
             let close_rect = Rect::from_min_size(
-                egui::pos2(
-                    snackbar_rect.max.x - 40.0,
-                    snackbar_rect.center().y - 20.0,
-                ),
+                egui::pos2(snackbar_rect.max.x - 40.0, snackbar_rect.center().y - 20.0),
                 Vec2::new(40.0, 40.0),
             );
 

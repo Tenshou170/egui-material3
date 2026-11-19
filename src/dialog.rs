@@ -79,8 +79,8 @@ pub struct MaterialDialog<'a> {
     dialog_type: DialogType,
     /// Optional icon to display in dialog header
     icon: Option<String>,
-    /// Content rendering function called once
-    content: Box<dyn FnOnce(&mut Ui) + 'a>,
+    /// Content rendering function called once with UI and open state
+    content: Box<dyn FnOnce(&mut Ui, &mut bool) + 'a>,
     /// List of action buttons at the bottom of the dialog
     actions: Vec<DialogAction<'a>>,
     /// Whether this is a quick/temporary dialog
@@ -147,7 +147,7 @@ impl<'a> MaterialDialog<'a> {
             open,
             dialog_type: DialogType::Standard,
             icon: None,
-            content: Box::new(|_| {}),
+            content: Box::new(|_, _| {}),
             actions: Vec::new(),
             quick: false,
             no_focus_trap: false,
@@ -190,13 +190,17 @@ impl<'a> MaterialDialog<'a> {
     /// Set the content of the dialog
     ///
     /// ## Parameters
-    /// - `content`: A closure that renders the content UI
+    /// - `content`: A closure that renders the content UI and has access to the dialog's open state
+    ///
+    /// The closure receives two parameters:
+    /// - `ui`: The egui UI context for rendering
+    /// - `open`: Mutable reference to the dialog's open state (set to `false` to close programmatically)
     ///
     /// ## Returns
     /// Self for method chaining
     pub fn content<F>(mut self, content: F) -> Self
     where
-        F: FnOnce(&mut Ui) + 'a,
+        F: FnOnce(&mut Ui, &mut bool) + 'a,
     {
         self.content = Box::new(content);
         self
@@ -456,11 +460,11 @@ impl<'a> MaterialDialog<'a> {
             DialogType::Form => 560.0,
             DialogType::Standard => 400.0,
         };
-        
+
         let dialog_min_width = self.min_width.unwrap_or(280.0);
         let dialog_max_width = self.max_width.unwrap_or(default_width.max(560.0));
         let dialog_max_height = self.max_height;
-        
+
         // Calculate reasonable max height based on screen size if not specified
         let screen_height = ctx.content_rect().height();
         let effective_max_height = dialog_max_height.unwrap_or((screen_height * 0.9).min(800.0));
@@ -469,7 +473,7 @@ impl<'a> MaterialDialog<'a> {
         let icon = self.icon.clone();
         let actions = std::mem::take(&mut self.actions);
         let open_ref = self.open as *mut bool;
-        
+
         let title_padding = self.title_padding;
         let content_padding = self.content_padding;
         let actions_padding = self.actions_padding;
@@ -488,10 +492,8 @@ impl<'a> MaterialDialog<'a> {
                     .clamp(0.0, 255.0) as u8,
             ))
             .stroke(Stroke::NONE);
-        
-        let modal = Modal::new(self.id)
-            .frame(modal_frame)
-            .show(ctx, |ui| {
+
+        let modal = Modal::new(self.id).frame(modal_frame).show(ctx, |ui| {
             ui.set_min_width(dialog_min_width);
             ui.set_max_width(dialog_max_width);
             // Only set max_height for scrollable dialogs to avoid empty space at bottom
@@ -508,11 +510,11 @@ impl<'a> MaterialDialog<'a> {
             ui.style_mut().visuals.window_fill = surface_container_high;
             ui.style_mut().visuals.panel_fill = surface_container_high;
             ui.style_mut().visuals.window_stroke = Stroke::NONE;
-            
-            // Remove all automatic spacing and margins  
+
+            // Remove all automatic spacing and margins
             // ui.spacing_mut().item_spacing.y = 0.0;
             // ui.spacing_mut().window_margin = egui::Margin::ZERO;
-            
+
             ui.vertical(|ui| {
                 // ui.spacing_mut().item_spacing.y = 0.0;
                 // Top padding now handled by Modal frame margin
@@ -523,18 +525,20 @@ impl<'a> MaterialDialog<'a> {
                         ui.add_space(0.0);
                         // Material icon - centered above title
                         // Use MaterialIcon for proper icon rendering
-                        let icon_widget = crate::icon::MaterialIcon::new(crate::material_symbol::material_symbol_text(icon))
-                            .size(24.0)
-                            .color(on_surface_variant);
+                        let icon_widget = crate::icon::MaterialIcon::new(
+                            crate::material_symbol::material_symbol_text(icon),
+                        )
+                        .size(24.0)
+                        .color(on_surface_variant);
                         ui.add(icon_widget);
                         ui.add_space(16.0);
                     });
                 }
 
                 // Headline with custom padding support
-                let [title_left, title_right, _title_top, title_bottom] = 
+                let [title_left, title_right, _title_top, title_bottom] =
                     title_padding.unwrap_or([24.0, 24.0, 0.0, 0.0]);
-                
+
                 ui.horizontal(|ui| {
                     ui.add_space(title_left);
                     // Center title if there's an icon
@@ -554,20 +558,24 @@ impl<'a> MaterialDialog<'a> {
                     ui.add_space(title_right);
                 });
 
-                ui.add_space(if title_bottom > 0.0 { title_bottom } else { 16.0 });
+                ui.add_space(if title_bottom > 0.0 {
+                    title_bottom
+                } else {
+                    16.0
+                });
 
                 // Content area with optional scrolling and custom padding
-                let [content_left, content_right, content_top, content_bottom] = 
+                let [content_left, content_right, content_top, content_bottom] =
                     content_padding.unwrap_or([24.0, 24.0, 0.0, 24.0]);
-                
+
                 if scrollable {
                     // Scrollable content - use fixed width area
                     let scroll_width = ui.available_width() - content_left - content_right;
                     let scroll_height = ui.available_height() - content_bottom;
-                    
+
                     ui.horizontal(|ui| {
                         ui.add_space(content_left);
-                        
+
                         // Allocate fixed space for scroll area
                         ui.allocate_ui_with_layout(
                             egui::vec2(scroll_width, scroll_height),
@@ -582,11 +590,13 @@ impl<'a> MaterialDialog<'a> {
                                         if content_top > 0.0 {
                                             ui.add_space(content_top);
                                         }
-                                        (self.content)(ui);
+                                        unsafe {
+                                            (self.content)(ui, &mut *open_ref);
+                                        }
                                     });
                             },
                         );
-                        
+
                         ui.add_space(content_right);
                     });
                 } else {
@@ -600,7 +610,9 @@ impl<'a> MaterialDialog<'a> {
                             if content_top > 0.0 {
                                 ui.add_space(content_top);
                             }
-                            (self.content)(ui);
+                            unsafe {
+                                (self.content)(ui, &mut *open_ref);
+                            }
                             // Don't consume remaining vertical space - let content size naturally
                         });
                         ui.add_space(content_right);
@@ -609,25 +621,26 @@ impl<'a> MaterialDialog<'a> {
 
                 // Actions area with custom padding and spacing
                 if !actions.is_empty() {
-                    let [actions_left, actions_right, actions_top, _actions_bottom] = 
+                    let [actions_left, actions_right, actions_top, _actions_bottom] =
                         actions_padding.unwrap_or([24.0, 24.0, 0.0, 0.0]);
-                    
+
                     // Add spacing between content and actions
                     // Use actions_top if specified, otherwise use smaller default spacing
-                    let spacing_before_actions = if actions_top > 0.0 { 
-                        actions_top 
-                    } else if content_bottom > 0.0 { 
-                        content_bottom.min(16.0) 
-                    } else { 
-                        16.0 
+                    let spacing_before_actions = if actions_top > 0.0 {
+                        actions_top
+                    } else if content_bottom > 0.0 {
+                        content_bottom.min(16.0)
+                    } else {
+                        16.0
                     };
                     ui.add_space(spacing_before_actions);
-                    
+
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.add_space(actions_right);
 
                         for (index, action) in actions.into_iter().enumerate().rev() {
-                            let button_response = Self::draw_action_button_static(ui, &action, button_padding);
+                            let button_response =
+                                Self::draw_action_button_static(ui, &action, button_padding);
 
                             if button_response.clicked() {
                                 pending_actions.push((index, action.action));
@@ -659,7 +672,11 @@ impl<'a> MaterialDialog<'a> {
         }
     }
 
-    fn draw_action_button_static(ui: &mut Ui, action: &DialogAction, button_padding: Option<[f32; 2]>) -> Response {
+    fn draw_action_button_static(
+        ui: &mut Ui,
+        action: &DialogAction,
+        button_padding: Option<[f32; 2]>,
+    ) -> Response {
         let primary = get_global_color("primary");
         let on_primary = get_global_color("onPrimary");
         let secondary_container = get_global_color("secondaryContainer");
@@ -702,16 +719,12 @@ impl<'a> MaterialDialog<'a> {
                     (Color32::TRANSPARENT, primary, Color32::TRANSPARENT)
                 }
             }
-            ActionType::FilledTonal => {
-                (
-                    secondary_container,
-                    on_secondary_container,
-                    Color32::TRANSPARENT,
-                )
-            }
-            ActionType::Filled => {
-                (primary, on_primary, Color32::TRANSPARENT)
-            }
+            ActionType::FilledTonal => (
+                secondary_container,
+                on_secondary_container,
+                Color32::TRANSPARENT,
+            ),
+            ActionType::Filled => (primary, on_primary, Color32::TRANSPARENT),
         };
 
         // Draw button background
