@@ -146,7 +146,7 @@ impl Widget for MaterialButton<'_> {
         let (default_pad_x, default_pad_y, default_min_h) = match density {
             crate::theme::Density::Touch => (24.0, 10.0, 48.0),
             crate::theme::Density::Desktop => (16.0, 8.0, 40.0),
-            crate::theme::Density::Compact => (10.0, 5.0, 32.0),
+            crate::theme::Density::Compact => (8.0, 5.0, 32.0),
         };
         let has_leading =
             leading_icon_galley.is_some() || leading_svg_texture.is_some() || image.is_some();

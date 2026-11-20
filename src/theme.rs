@@ -2149,7 +2149,7 @@ pub mod spacing {
         match density {
             Density::Desktop => egui::Vec2::new(40.0, 40.0),
             Density::Touch => egui::Vec2::new(48.0, 48.0),
-            Density::Compact => egui::Vec2::new(32.0, 32.0),
+            Density::Compact => egui::Vec2::new(32.0, 24.0),
         }
     }
 
@@ -2158,7 +2158,7 @@ pub mod spacing {
         match density {
             Density::Desktop => egui::Vec2::new(16.0, 8.0),
             Density::Touch => egui::Vec2::new(24.0, 12.0),
-            Density::Compact => egui::Vec2::new(10.0, 5.0),
+            Density::Compact => egui::Vec2::new(8.0, 5.0),
         }
     }
 
@@ -2178,7 +2178,7 @@ pub mod spacing {
         match density {
             Density::Desktop => egui::Margin::same(16),
             Density::Touch => egui::Margin::same(24),
-            Density::Compact => egui::Margin::same(10),
+            Density::Compact => egui::Margin::same(6),
         }
     }
     /// Margin around floating windows and dialogs (static default).
