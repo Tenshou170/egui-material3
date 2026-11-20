@@ -2053,7 +2053,7 @@ pub fn component_radius(component: ShapeComponent) -> f32 {
         return radius;
     }
 
-    if let Some(radius) = theme.shape_corner_radius.filter(|_| component.is_window_surface()) {
+    if let Some(radius) = theme.shape_corner_radius {
         return radius.clamp(0.0, 96.0);
     }
 

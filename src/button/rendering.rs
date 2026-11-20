@@ -178,6 +178,8 @@ impl Widget for MaterialButton<'_> {
             on_surface.linear_multiply(0.38)
         } else if let Some(custom) = custom_text_color {
             custom
+        } else if selected {
+            get_global_color("onPrimaryContainer")
         } else {
             match variant {
                 MaterialButtonVariant::Filled => {
@@ -330,12 +332,13 @@ impl Widget for MaterialButton<'_> {
             let visuals = ui.style().interact(&response);
 
             let (frame_expansion, _frame_cr, frame_fill, frame_stroke) = if selected {
-                let selection = ui.visuals().selection;
+                let primary_container = get_global_color("primaryContainer");
+                let primary = get_global_color("primary");
                 (
                     Vec2::ZERO,
                     CornerRadius::ZERO,
-                    selection.bg_fill,
-                    selection.stroke,
+                    primary_container,
+                    Stroke::new(1.0_f32, primary),
                 )
             } else if frame {
                 let expansion = Vec2::splat(visuals.expansion);
@@ -349,8 +352,8 @@ impl Widget for MaterialButton<'_> {
                 Default::default()
             };
             let frame_cr = corner_radius.unwrap_or(default_corner_radius);
-            let mut frame_fill = fill.unwrap_or(default_fill.unwrap_or(frame_fill));
-            let mut frame_stroke = stroke.unwrap_or(default_stroke.unwrap_or(frame_stroke));
+            let mut frame_fill = fill.unwrap_or(if selected { frame_fill } else { default_fill.unwrap_or(frame_fill) });
+            let mut frame_stroke = stroke.unwrap_or(if selected { frame_stroke } else { default_stroke.unwrap_or(frame_stroke) });
 
             // Apply disabled styling (M3 spec: 38% opacity content, 12% opacity container/outline)
             if disabled {
