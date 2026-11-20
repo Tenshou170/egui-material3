@@ -312,8 +312,23 @@ pub struct MaterialThemeContext {
     /// Multiplier applied to every component's MD3 shape radius when no explicit
     /// `shape_corner_radius` override is set. 1.0 = spec, 0.0 = square, 2.0 = rounder.
     pub shape_corner_scale: f32,
+    /// Scope of components affected by `shape_corner_radius`.
+    pub shape_corner_scope: ShapeCornerScope,
     /// Interaction density: desktop metrics or the larger touch metrics used on Android.
     pub density: Density,
+}
+
+/// Scope of the uniform corner radius override.
+///
+/// - `All`: applies to all MD3 components (windows, dialogs, cards, buttons, etc.).
+/// - `WindowsAndCards`: applies to windows, dialogs, and cards; buttons keep their spec shape.
+/// - `Windows`: applies only to window surfaces (dialogs, sheets, menus, drawers).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ShapeCornerScope {
+    #[default]
+    All,
+    WindowsAndCards,
+    Windows,
 }
 
 /// Material Design 3 interaction density.
@@ -362,6 +377,7 @@ impl Default for MaterialThemeContext {
             dark_mode: false,
             shape_corner_radius: None,
             shape_corner_scale: 1.0,
+            shape_corner_scope: ShapeCornerScope::All,
             density: Density::Desktop,
         }
     }
@@ -1674,6 +1690,18 @@ pub fn set_global_corner_radius(radius: Option<f32>) {
     }
 }
 
+/// Get the global corner radius scope.
+pub fn get_global_corner_scope() -> ShapeCornerScope {
+    GLOBAL_THEME.lock().ok().map(|t| t.shape_corner_scope).unwrap_or_default()
+}
+
+/// Set which elements the corner radius override applies to.
+pub fn set_global_corner_scope(scope: ShapeCornerScope) {
+    if let Ok(mut theme) = GLOBAL_THEME.lock() {
+        theme.shape_corner_scope = scope;
+    }
+}
+
 /// Get the global shape scale multiplier (see [`set_global_shape_scale`]).
 pub fn get_global_shape_scale() -> f32 {
     GLOBAL_THEME.lock().ok().map(|t| t.shape_corner_scale).unwrap_or(1.0)
@@ -2054,7 +2082,14 @@ pub fn component_radius(component: ShapeComponent) -> f32 {
     }
 
     if let Some(radius) = theme.shape_corner_radius {
-        return radius.clamp(0.0, 96.0);
+        let applies = match theme.shape_corner_scope {
+            ShapeCornerScope::All => true,
+            ShapeCornerScope::WindowsAndCards => component.is_window_surface() || component == ShapeComponent::Card,
+            ShapeCornerScope::Windows => component.is_window_surface(),
+        };
+        if applies {
+            return radius.clamp(0.0, 96.0);
+        }
     }
 
     (component.spec_radius() * theme.shape_corner_scale.clamp(0.0, 4.0)).clamp(0.0, 96.0)

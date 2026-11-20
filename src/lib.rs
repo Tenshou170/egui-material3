@@ -345,6 +345,7 @@ pub use {
         MaterialThemeContext, MaterialThemeFile, ThemeMode,
         apply_theme, apply_theme_auto, load_fonts, load_themes,
         get_global_corner_radius, set_global_corner_radius,
+        get_global_corner_scope, set_global_corner_scope, ShapeCornerScope,
         get_global_shape_scale, set_global_shape_scale,
         get_global_density, set_global_density, Density,
         component_radius, theme_shape_override, shadow, ShapeComponent,
